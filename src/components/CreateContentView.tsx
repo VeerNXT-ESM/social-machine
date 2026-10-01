@@ -1,0 +1,320 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Platform, ContentType, SourceType, ContentItem } from '@/types';
+import {
+  FileText,
+  Link as LinkIcon,
+  StickyNote,
+  Lightbulb,
+  Globe,
+  AlertCircle,
+  Loader2,
+  Wand2,
+  Zap,
+} from 'lucide-react';
+import { Button, Card, CardBody, CardHeader, Field, Input, PageHeader, Select, Tabs, Textarea } from './ui';
+import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
+
+interface CreateContentViewProps {
+  onGenerated: (newItem: ContentItem) => void;
+}
+
+export function CreateContentView({ onGenerated }: CreateContentViewProps) {
+  const [sourceType, setSourceType] = useState<SourceType>('article');
+  const [title, setTitle] = useState('');
+  const [sourceContent, setSourceContent] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [campaign, setCampaign] = useState('VeerNXT Launch');
+  const [contentType, setContentType] = useState<ContentType>('Announcement');
+  const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.com');
+  const [additionalInstructions, setAdditionalInstructions] = useState('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
+    'linkedin',
+    'x',
+    'instagram',
+    'facebook',
+  ]);
+
+  const [loading, setLoading] = useState(false);
+  const [scrapingUrl, setScrapingUrl] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Content type options list
+  const contentTypeOptions: ContentType[] = [
+    'Announcement',
+    'Educational',
+    'Thought Leadership',
+    'Product',
+    'Employer',
+    'Jobs',
+    'Career Advice',
+    'Community',
+    'Evergreen',
+    'Other',
+  ];
+
+  // Prefill Example handler
+  const handleLoadExample = () => {
+    setSourceType('article');
+    setTitle('Launching VeerNXT');
+    setSourceContent(
+      'We are launching VeerNXT, a platform designed to help Ex-Service Men transition into civilian careers through jobs, learning, skills development and employer connections.'
+    );
+    setCampaign('VeerNXT Launch');
+    setContentType('Announcement');
+    setCta('Visit https://veernxt.com to explore opportunities.');
+    setWebsiteUrl('https://veernxt.com');
+  };
+
+  // URL Scrape Handler
+  const handleExtractUrl = async () => {
+    if (!websiteUrl) return;
+    setScrapingUrl(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/content/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setErrorMsg(data.error || "We couldn't read this page. Paste the article text instead.");
+      } else {
+        if (data.title && !title) setTitle(data.title);
+        if (data.extractedText) {
+          setSourceContent(data.extractedText);
+          setErrorMsg(null);
+        }
+      }
+    } catch {
+      setErrorMsg("We couldn't read this page. Paste the article text instead.");
+    } finally {
+      setScrapingUrl(false);
+    }
+  };
+
+  // Platform checkbox toggle
+  const togglePlatform = (p: Platform) => {
+    if (selectedPlatforms.includes(p)) {
+      if (selectedPlatforms.length === 1) return; // keep at least 1
+      setSelectedPlatforms(selectedPlatforms.filter((item) => item !== p));
+    } else {
+      setSelectedPlatforms([...selectedPlatforms, p]);
+    }
+  };
+
+  // Form Submit Handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sourceContent.trim() && !title.trim()) {
+      setErrorMsg('Please enter either a title or source content/notes.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/content/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title || 'VeerNXT Idea',
+          sourceContent: sourceContent || title,
+          sourceType,
+          sourceUrl: websiteUrl,
+          contentType,
+          campaign,
+          cta,
+          selectedPlatforms,
+          additionalInstructions,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to generate posts');
+      }
+
+      onGenerated(data.item);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Content generation failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sourceTabs: { id: SourceType; label: string; icon: React.ReactNode }[] = [
+    { id: 'article', label: 'Article', icon: <FileText className="w-4 h-4" /> },
+    { id: 'link', label: 'Link / URL', icon: <LinkIcon className="w-4 h-4" /> },
+    { id: 'notes', label: 'Notes', icon: <StickyNote className="w-4 h-4" /> },
+    { id: 'idea', label: 'Idea', icon: <Lightbulb className="w-4 h-4" /> },
+  ];
+
+  const channelOptions: { id: Platform; label: string; icon: React.ReactNode }[] = [
+    { id: 'linkedin', label: 'LinkedIn', icon: <Linkedin className="w-4 h-4" /> },
+    { id: 'x', label: 'X', icon: <Twitter className="w-4 h-4" /> },
+    { id: 'instagram', label: 'Instagram', icon: <Instagram className="w-4 h-4" /> },
+    { id: 'facebook', label: 'Facebook', icon: <Facebook className="w-4 h-4" /> },
+  ];
+
+  return (
+    <div className="space-y-4 pb-16">
+      <PageHeader
+        title="New content"
+        description="Add source material, choose channels, and generate a draft for each."
+        actions={
+          <Button onClick={handleLoadExample}>
+            <Zap className="w-4 h-4" />
+            Load example
+          </Button>
+        }
+      />
+
+      {errorMsg && (
+        <div className="p-3 bg-white border border-neutral-400 text-neutral-900 text-sm flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start"
+      >
+        <Card>
+          <Tabs options={sourceTabs} value={sourceType} onChange={setSourceType} />
+
+          <CardBody className="space-y-4">
+            <Field label="Title">
+              <Input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Launching VeerNXT"
+              />
+            </Field>
+
+            {(sourceType === 'link' || sourceType === 'article') && (
+              <Field label="Website URL (optional)">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Globe className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+                    <Input
+                      type="url"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      placeholder="https://veernxt.com/news/career-launch"
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button onClick={handleExtractUrl} disabled={scrapingUrl || !websiteUrl} className="shrink-0">
+                    {scrapingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch page'}
+                  </Button>
+                </div>
+              </Field>
+            )}
+
+            <Field label="Source material" hint={`${sourceContent.length} characters`}>
+              <Textarea
+                rows={14}
+                value={sourceContent}
+                onChange={(e) => setSourceContent(e.target.value)}
+                placeholder="Paste article text, a press release, notes or key points here."
+              />
+            </Field>
+          </CardBody>
+        </Card>
+
+        <aside className="space-y-4 xl:sticky xl:top-20">
+          <Card>
+            <CardHeader title="Details" />
+            <CardBody className="space-y-4">
+              <Field label="Campaign">
+                <Input
+                  type="text"
+                  value={campaign}
+                  onChange={(e) => setCampaign(e.target.value)}
+                  placeholder="e.g. VeerNXT Launch"
+                />
+              </Field>
+              <Field label="Content type">
+                <Select value={contentType} onChange={(e) => setContentType(e.target.value as ContentType)}>
+                  {contentTypeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Call to action">
+                <Input
+                  type="text"
+                  value={cta}
+                  onChange={(e) => setCta(e.target.value)}
+                  placeholder="e.g. Visit https://veernxt.com to learn more."
+                />
+              </Field>
+              <Field label="Additional instructions (optional)">
+                <Textarea
+                  rows={3}
+                  value={additionalInstructions}
+                  onChange={(e) => setAdditionalInstructions(e.target.value)}
+                  placeholder="e.g. Emphasize leadership skills for corporate IT roles"
+                />
+              </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Channels" />
+            <ul className="divide-y divide-neutral-200">
+              {channelOptions.map((c) => (
+                <li key={c.id}>
+                  <label className="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-neutral-50">
+                    <span className="flex items-center gap-2.5 text-sm text-neutral-900">
+                      {c.icon} {c.label}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatforms.includes(c.id)}
+                      onChange={() => togglePlatform(c.id)}
+                      className="w-4 h-4 accent-neutral-800"
+                    />
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            block
+            disabled={loading || selectedPlatforms.length === 0}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Generating posts...</span>
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4" />
+                <span>
+                  Generate for {selectedPlatforms.length} channel{selectedPlatforms.length === 1 ? '' : 's'}
+                </span>
+              </>
+            )}
+          </Button>
+        </aside>
+      </form>
+    </div>
+  );
+}
