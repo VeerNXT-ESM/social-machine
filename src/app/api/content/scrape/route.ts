@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       extractedText: cleanText.substring(0, 4000),
       url,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
       { error: "We couldn't read this page. Paste the article text instead." },
       { status: 500 }

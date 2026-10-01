@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ContentItem, Platform } from '@/types';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import { Search, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 import { Button, Card, EmptyState, Input, Select, StatusLabel } from './ui';
@@ -33,6 +33,8 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
   const [status, setStatus] = useState('ALL');
   const [channel, setChannel] = useState<'ALL' | Platform>('ALL');
   const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,17 +52,18 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
   const toggle = (id: string) =>
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
-  const approveSelected = () => {
-    selected.forEach((id) => {
-      const item = mockRepo.getItemById(id);
-      if (!item?.posts) return;
-      (Object.keys(item.posts) as Platform[]).forEach((p) => {
-        const st = item.posts![p].status;
-        if (st !== 'PUBLISHED' && st !== 'SCHEDULED') mockRepo.updatePostStatus(id, p, 'APPROVED');
-      });
-    });
-    setSelected([]);
-    onItemsChanged();
+  const approveSelected = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await Promise.all(selected.map((id) => api.approve(id)));
+      setSelected([]);
+      onItemsChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not approve the selected content.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const approvedCount = (i: ContentItem) => {
@@ -109,7 +112,7 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
           {selected.length > 0 && (
             <>
               <span className="text-sm text-neutral-700">{selected.length} selected</span>
-              <Button onClick={approveSelected}>
+              <Button onClick={approveSelected} disabled={busy}>
                 <CheckCircle2 className="w-4 h-4" /> Approve posts
               </Button>
               <Button variant="ghost" onClick={() => setSelected([])}>
@@ -122,6 +125,12 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
           </Button>
         </div>
       </Card>
+
+      {error && (
+        <div className="p-3 bg-white border border-neutral-800 text-neutral-900 text-sm" role="alert">
+          {error}
+        </div>
+      )}
 
       <Card className="overflow-x-auto">
         <table className="w-full text-sm min-w-[820px]">

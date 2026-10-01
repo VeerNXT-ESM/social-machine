@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
-import { ContentItem, PlatformPost, Platform } from '@/types';
+import { createItem, NewPost } from '@/lib/db/items';
+import { isPlatform, serverError } from '@/lib/db/http';
+import { Platform } from '@/types';
 
 export async function POST(req: Request) {
   try {
@@ -14,18 +16,21 @@ export async function POST(req: Request) {
       contentType = 'Announcement',
       campaign,
       cta,
-      selectedPlatforms = ['linkedin', 'x', 'instagram', 'facebook'],
       additionalInstructions,
     } = body;
 
+    const requested: unknown[] = Array.isArray(body.selectedPlatforms)
+      ? body.selectedPlatforms
+      : ['linkedin', 'x', 'instagram', 'facebook'];
+    const selectedPlatforms = requested.filter(isPlatform) as Platform[];
+
     if (!sourceContent && !title) {
-      return NextResponse.json(
-        { error: 'Please provide either source content or a title' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Please provide either source content or a title' }, { status: 400 });
+    }
+    if (selectedPlatforms.length === 0) {
+      return NextResponse.json({ error: 'Select at least one channel' }, { status: 400 });
     }
 
-    // Call OpenAI / AI Generator engine
     const aiResult = await generateSocialContent({
       title: title || 'VeerNXT Post',
       sourceContent: sourceContent || title,
@@ -38,38 +43,29 @@ export async function POST(req: Request) {
       additionalInstructions,
     });
 
-    // One image per content item (GPT Image 2.5 Flare, medium quality), shared by all platforms
+    // One image per content item, shared by all of its platform posts
     const vd = aiResult.visual_direction;
     const imageUrl = await generatePostImage(
       vd?.image_prompt || vd?.concept || `${title || 'VeerNXT'}: ${aiResult.core_message}`,
       vd?.aspect_ratio || '1:1'
     );
 
-    // Construct ContentItem & PlatformPost objects
-    const itemId = `item-${Date.now()}`;
-    const posts: Record<string, PlatformPost> = {};
+    const posts: NewPost[] = [];
+    for (const platform of selectedPlatforms) {
+      const single = aiResult.posts[platform];
+      if (!single) continue;
+      posts.push({
+        platform,
+        provider: 'mock',
+        text: single.text || single.caption || '',
+        hashtags: single.hashtags || [],
+        cta: single.cta || cta || 'Learn more at https://veernxt.com',
+        status: 'REVIEW',
+        media_urls: [imageUrl],
+      });
+    }
 
-    selectedPlatforms.forEach((plat: Platform) => {
-      const single = aiResult.posts[plat];
-      if (single) {
-        posts[plat] = {
-          id: `post-${plat}-${Date.now()}`,
-          content_item_id: itemId,
-          platform: plat,
-          provider: 'mock',
-          text: single.text || single.caption || '',
-          hashtags: single.hashtags || [],
-          cta: single.cta || cta || 'Learn more at https://veernxt.com',
-          status: 'REVIEW', // Set initial generated status to REVIEW
-          media_urls: [imageUrl],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
-    });
-
-    const newItem: ContentItem = {
-      id: itemId,
+    const item = await createItem({
       title: title || 'New VeerNXT Content',
       source_type: sourceType,
       source_content: sourceContent || title,
@@ -80,23 +76,11 @@ export async function POST(req: Request) {
       status: 'REVIEW',
       selected_platforms: selectedPlatforms,
       visual_direction: aiResult.visual_direction,
-      posts: posts as any,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // Persistence happens client-side (localStorage) - the caller saves the returned item.
-
-    return NextResponse.json({
-      success: true,
-      item: newItem,
-      ai_result: aiResult,
+      posts,
     });
-  } catch (err: any) {
-    console.error('API /api/content/generate error:', err);
-    return NextResponse.json(
-      { error: err.message || 'Failed to generate content' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ success: true, item, ai_result: aiResult });
+  } catch (err) {
+    return serverError('POST /api/content/generate', err);
   }
 }

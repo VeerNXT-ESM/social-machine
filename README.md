@@ -62,10 +62,16 @@ cp .env.example .env.local
 Fill in your secrets in `.env.local`:
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
+
+# Supabase (content is stored server-side through the API routes)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your-secret-key           # server only, never expose to the browser
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+DATABASE_URL=postgresql://postgres.PROJECT_REF:ENCODED_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
 ```
-> *Note*: If `OPENAI_API_KEY` is not supplied, the app automatically operates using the built-in AI mock engine so you can test all features offline.
+> URL-encode special characters in the database password (for example `@` becomes `%40`).
+> *Note*: If `OPENAI_API_KEY` is not supplied, the app uses the built-in mock generator. Supabase is required for storing content: apply `supabase/migrations/01_initial_schema.sql` first.
 
 ### 4. Run Development Server
 ```bash

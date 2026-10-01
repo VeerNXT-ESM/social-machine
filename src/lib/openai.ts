@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { GeneratedPostsSchema, Platform, ContentType, SinglePlatformPost } from '@/types';
+import { GeneratedPostsSchema, Platform, ContentType, SinglePlatformPost, BrandSettings } from '@/types';
 
 export const SYSTEM_PROMPT_VEERNXT = `
 You are the Lead Editorial Communications Strategist for "VeerNXT".
@@ -38,7 +38,7 @@ export async function generateSocialContent(params: {
   cta?: string;
   selectedPlatforms: Platform[];
   additionalInstructions?: string;
-  brandSettings?: any;
+  brandSettings?: BrandSettings;
 }): Promise<GeneratedPostsSchema> {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -171,7 +171,7 @@ export async function refinePlatformPost(params: {
   currentText: string;
   action: 'shorten' | 'expand' | 'hook' | 'professional' | 'conversational' | 'cta' | 'regenerate';
   sourceContent?: string;
-  brandSettings?: any;
+  brandSettings?: BrandSettings;
 }): Promise<SinglePlatformPost> {
   const apiKey = process.env.OPENAI_API_KEY;
 

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ContentItem, Platform, PlatformPost } from '@/types';
 import { PlatformPreviews } from './PlatformPreviews';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import {
   Sparkles,
   CheckCircle2,
@@ -79,6 +79,8 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
 
   const currentPost: PlatformPost | undefined = item.posts?.[activePlatform];
   const platformName = PLATFORM_META[activePlatform].name;
@@ -94,28 +96,68 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
     setTimeout(() => setErrorMessage(null), 6000);
   };
 
+  // Typing shows instantly; the save to the database is debounced, and flushed if you leave mid-edit.
+  const pendingSave = useRef<{ id: string; platform: Platform; text: string } | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushSave = async () => {
+    const pending = pendingSave.current;
+    if (!pending) return;
+    pendingSave.current = null;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    try {
+      await api.updatePost(pending.id, pending.platform, { text: pending.text });
+      setSaveState('saved');
+    } catch (err) {
+      setSaveState('error');
+      fail(`Your last edit was not saved: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingSave.current;
+      if (pending) void api.updatePost(pending.id, pending.platform, { text: pending.text }).catch(() => {});
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
   const updatePostText = (text: string) => {
     if (!currentPost) return;
-    const updatedPost = { ...currentPost, text, updated_at: new Date().toISOString() };
-    const updatedPosts = { ...item.posts, [activePlatform]: updatedPost } as ContentItem['posts'];
-    onUpdateItem(mockRepo.saveItem({ ...item, posts: updatedPosts }));
+    const optimistic = {
+      ...item,
+      posts: { ...item.posts, [activePlatform]: { ...currentPost, text } },
+    } as ContentItem;
+    onUpdateItem(optimistic);
+    pendingSave.current = { id: item.id, platform: activePlatform, text };
+    setSaveState('saving');
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushSave, 700);
   };
 
-  const handleApproveCurrent = () => {
-    if (!currentPost) return;
-    const updated = mockRepo.updatePostStatus(item.id, activePlatform, 'APPROVED');
-    if (updated) onUpdateItem(updated);
+  const switchPlatform = async (p: Platform) => {
+    await flushSave();
+    setActivePlatform(p);
   };
 
-  const handleApproveAll = () => {
-    let updatedItem = { ...item };
-    selectedPlatforms.forEach((p) => {
-      const res = mockRepo.updatePostStatus(item.id, p, 'APPROVED');
-      if (res) updatedItem = res;
-    });
-    onUpdateItem(updatedItem);
-    notify('All channel posts approved.');
+  /** Run an API action with a busy flag, then show its result or its error. */
+  const run = async (task: () => Promise<ContentItem>, success: string) => {
+    setBusy(true);
+    try {
+      await flushSave();
+      onUpdateItem(await task());
+      notify(success);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'That action failed.');
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const handleApproveCurrent = () =>
+    run(() => api.updatePost(item.id, activePlatform, { status: 'APPROVED' }), `${platformName} post approved.`);
+
+  const handleApproveAll = () => run(() => api.approve(item.id), 'All channel posts approved.');
 
   const handleRefineAction = async (action: RefineAction) => {
     if (!currentPost) return;
@@ -147,59 +189,26 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
     }
   };
 
-  /**
-   * The API runs on the server and cannot read browser storage, so the post is
-   * sent along with the request and the status is saved here afterwards.
-   * The server only accepts approved posts, so the post is approved first.
-   */
-  const callPublishApi = async (action: 'publish_now' | 'schedule', scheduledAt?: string) => {
-    if (!currentPost) return null;
-    mockRepo.updatePostStatus(item.id, activePlatform, 'APPROVED');
-    const res = await fetch('/api/publish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contentItemId: item.id,
-        platform: activePlatform,
-        action,
-        scheduledAt,
-        mode: 'mock',
-        post: { ...currentPost, status: 'APPROVED' },
-      }),
-    });
-    return res.json();
-  };
-
-  const handlePublishNow = async () => {
-    try {
-      const data = await callPublishApi('publish_now');
-      if (data?.success) {
-        const updated = mockRepo.updatePostStatus(item.id, activePlatform, 'PUBLISHED');
-        if (updated) onUpdateItem(updated);
-        notify(`Published to ${platformName} (sandbox).`);
-      } else {
-        fail(`Publishing failed: ${data?.error ?? 'unknown error'}`);
-      }
-    } catch (err) {
-      fail(`Publishing error: ${err instanceof Error ? err.message : 'unknown error'}`);
+  /** The server only accepts approved posts, so approve this channel first if needed. */
+  const ensureApproved = async () => {
+    if (currentPost && currentPost.status !== 'APPROVED' && currentPost.status !== 'SCHEDULED') {
+      await api.approve(item.id, [activePlatform]);
     }
   };
 
-  const handleConfirmSchedule = async () => {
+  const handlePublishNow = () =>
+    run(async () => {
+      await ensureApproved();
+      return api.publish(item.id, activePlatform);
+    }, `Published to ${platformName} (sandbox).`);
+
+  const handleConfirmSchedule = () => {
     setScheduleModalOpen(false);
     const iso = new Date(scheduledDate).toISOString();
-    try {
-      const data = await callPublishApi('schedule', iso);
-      if (data?.success) {
-        const updated = mockRepo.updatePostStatus(item.id, activePlatform, 'SCHEDULED', iso);
-        if (updated) onUpdateItem(updated);
-        notify(`Post scheduled for ${new Date(scheduledDate).toLocaleString()}.`);
-      } else {
-        fail(`Scheduling failed: ${data?.error ?? 'unknown error'}`);
-      }
-    } catch (err) {
-      fail(`Scheduling error: ${err instanceof Error ? err.message : 'unknown error'}`);
-    }
+    return run(async () => {
+      await ensureApproved();
+      return api.schedule(item.id, activePlatform, iso);
+    }, `Post scheduled for ${new Date(scheduledDate).toLocaleString()}.`);
   };
 
   const handleCopyText = () => {
@@ -243,7 +252,7 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
           </div>
           <h1 className="text-lg font-semibold text-neutral-900 truncate">{item.title}</h1>
         </div>
-        <Button variant="primary" onClick={handleApproveAll}>
+        <Button variant="primary" disabled={busy} onClick={handleApproveAll}>
           <CheckCircle2 className="w-4 h-4" /> Approve all channels
         </Button>
       </Card>
@@ -284,7 +293,7 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
       </div>
 
       <div className="flex items-center justify-between gap-4 border-b border-neutral-200">
-        <Tabs options={platformTabs} value={activePlatform} onChange={setActivePlatform} className="border-b-0 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" />
+        <Tabs options={platformTabs} value={activePlatform} onChange={switchPlatform} className="border-b-0 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" />
         <SegmentedControl
           className="pb-2 shrink-0"
           options={[
@@ -311,7 +320,11 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
               <CardHeader
                 title={`${platformName} post copy`}
                 icon={<ActiveIcon className="w-4 h-4" />}
-                actions={<span className="text-xs text-neutral-600">{currentPost?.text.length || 0} characters</span>}
+                actions={
+                  <span className="text-xs text-neutral-600">
+                    {currentPost?.text.length || 0} characters  -  {saveState === 'saving' ? 'Saving...' : saveState === 'error' ? 'Not saved' : 'Saved'}
+                  </span>
+                }
               />
               <CardBody className="space-y-4">
                 <Textarea
@@ -362,13 +375,13 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
               </div>
 
               <div className="space-y-2">
-                <Button variant="primary" block onClick={handleApproveCurrent}>
+                <Button variant="primary" block disabled={busy} onClick={handleApproveCurrent}>
                   <CheckCircle2 className="w-4 h-4" /> Approve {platformName}
                 </Button>
-                <Button block disabled={currentPost?.status === 'PUBLISHED'} onClick={() => setScheduleModalOpen(true)}>
+                <Button block disabled={busy || currentPost?.status === 'PUBLISHED'} onClick={() => setScheduleModalOpen(true)}>
                   <Clock className="w-4 h-4" /> Schedule post
                 </Button>
-                <Button variant="primary" block disabled={currentPost?.status === 'PUBLISHED'} onClick={handlePublishNow}>
+                <Button variant="primary" block disabled={busy || currentPost?.status === 'PUBLISHED'} onClick={handlePublishNow}>
                   <Send className="w-4 h-4" /> Publish now (sandbox)
                 </Button>
               </div>

@@ -32,6 +32,7 @@ A Next.js 16 (App Router, Tailwind 4) app that turns one idea or article into pl
 | 10 | **Themes from the main site** (`veernxt-web`): umbrella "Your Second Mission", journey from awareness to joining | Done, needs client approval |
 | 11 | **Corporate UI restyle.** Grey and white only, no rounded corners, no gradients, glow, glass or emoji. Inter font, page title fixed, compact dashboard header, test campaign moved to Settings > Developer tools. A converter script remapped about 60 colour patterns; a bug in its first run (side borders lost) was found and fixed | Done, reviewed in 1440 px screenshots. Media Library, Campaigns, both modals and smaller widths not yet reviewed |
 | 13 | **Layout redesign.** Calendar rebuilt with real week/month/list views, filters and a schedule panel; Content Library is now a filterable table with bulk approve; composer is two columns; responsive shell checked at 1440, 1024 and 390 px | Done, reviewed in screenshots. Test modal after real generation not re-run |
+| 15 | **Server-side storage (Supabase).** Content items, platform posts and campaigns now live in the database. New server layer (`src/lib/db/`), API routes (`/api/items`, `/api/items/[id]`, `.../posts/[platform]`, `.../approve`), and generate and publish routes that read and write the database. Browser client in `src/lib/api.ts`; every screen and modal moved over. Editor autosaves (debounced, flushed on leave). Until sign-in exists, rows belong to one workspace-owner account created through the admin API. Schema applied with tightened row level security (no open policies). Verified: 26 API checks, a full browser run with a fresh profile (content survives a reload and a new browser), and rows confirmed in the database | Done |
 | 14 | **Shared UI component set** (`src/components/ui/`: Button, Card, PageHeader, Field, Modal, Tabs, SegmentedControl, StatCard, EmptyState, StatusLabel, `cn()` helper) applied to every screen and modal. **Bug fixed:** Publish now and Schedule in the editor failed because the post was not sent to the API; both now work (tested in the browser) | Done |
 | 12 | **Test modal check made real.** It logged "Verified... no Agniveer" without checking. It now counts the posts and scans them for the prohibited term | Done, not run against live generation |
 
@@ -46,7 +47,7 @@ Assumes about Rs 96.5 per USD (from a web search, not a live rate). Excludes ad 
 
 ## 4. Known issues and risks
 
-1. **Images will not persist on Vercel.** `imageGen.ts` writes to `public/generated/` on disk. That works locally but not on Vercel (read-only filesystem). Before deploying, upload to Supabase Storage (the `media` bucket already planned in the README) or similar and store the URL.
+1. **Images are still files on disk (next step).** Posts store only the image path. `imageGen.ts` writes to `public/generated/` on disk. That works locally but not on Vercel (read-only filesystem). Before deploying, upload to Supabase Storage (the `media` bucket already planned in the README) or similar and store the URL.
 2. **Data lives in the browser only.** Clearing site data loses all content. `localStorage` also has a ~5 MB limit; images are stored as file paths so this is fine for now.
 3. **Old images in the browser.** Content generated before the India fix still shows the Western images until the test campaign is run again.
 4. **Real OpenAI key in `.env`.** Every test run spends real money (about Rs 7-8). I never printed the key. For offline runs set it to `your_openai_api_key_here`.
@@ -72,7 +73,8 @@ Assumes about Rs 96.5 per USD (from a web search, not a live rate). Excludes ad 
 
 ## 7. Suggested next steps
 
-1. Remaining UI items: calendar drag-to-reschedule and day view, replace sample data and images ([plan](UI_REDESIGN_PLAN.md), section 5).
+1. Move generated images into Supabase Storage (needed before deploying), then campaigns, media and brand settings into the database. Then sign-in.
+2. Remaining UI items: calendar drag-to-reschedule and day view, replace sample data and images ([plan](UI_REDESIGN_PLAN.md), section 5).
 2. Client review of the campaign workbook; resolve the open decisions in section 5.
 3. Before any deployment: move images to Supabase Storage and move persistence off `localStorage`.
 4. Build live publishing (start with one platform) once credentials exist.

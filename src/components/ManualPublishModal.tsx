@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PlatformPost } from '@/types';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import {
   Copy,
   Check,
@@ -21,8 +21,25 @@ interface ManualPublishModalProps {
 
 export function ManualPublishModal({ post, onClose, onMarkPublished }: ManualPublishModalProps) {
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!post) return null;
+
+  const handleMarkPublished = async () => {
+    if (!post) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.updatePost(post.content_item_id, post.platform, { status: 'PUBLISHED' });
+      onMarkPublished();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the status.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(`${post.text}\n\n${post.cta}\n${post.hashtags?.join(' ')}`);
@@ -78,17 +95,13 @@ export function ManualPublishModal({ post, onClose, onMarkPublished }: ManualPub
         </a>
       </div>
 
-      <Button
-        variant="primary"
-        size="lg"
-        block
-        onClick={() => {
-          mockRepo.updatePostStatus(post.content_item_id, post.platform, 'PUBLISHED');
-          onMarkPublished();
-          onClose();
-        }}
-      >
-        <CheckCircle2 className="w-4 h-4" /> Mark as published
+      {error && (
+        <p className="text-sm text-neutral-900 border border-neutral-800 p-2" role="alert">
+          {error}
+        </p>
+      )}
+      <Button variant="primary" size="lg" block disabled={saving} onClick={handleMarkPublished}>
+        <CheckCircle2 className="w-4 h-4" /> {saving ? 'Saving...' : 'Mark as published'}
       </Button>
     </Modal>
   );

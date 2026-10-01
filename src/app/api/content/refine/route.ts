@@ -24,10 +24,10 @@ export async function POST(req: Request) {
       success: true,
       post: refined,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('API /api/content/refine error:', err);
     return NextResponse.json(
-      { error: err.message || 'Failed to refine post' },
+      { error: err instanceof Error ? err.message : 'Failed to refine post' },
       { status: 500 }
     );
   }

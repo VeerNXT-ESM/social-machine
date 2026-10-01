@@ -14,7 +14,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { ContentItem, Platform, PlatformPost } from '@/types';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock, Globe } from 'lucide-react';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 import { Button, Card, CardHeader, EmptyState, Input, Select, SegmentedControl, StatusLabel } from './ui';
@@ -54,6 +54,8 @@ export function CalendarView({ items, onSelectItem, onItemsChanged }: CalendarVi
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SCHEDULED' | 'PUBLISHED'>('ALL');
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [when, setWhen] = useState(defaultSlot());
+  const [saving, setSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const { entries, unscheduled, reviewCount } = useMemo(() => {
     const e: Entry[] = [];
@@ -97,10 +99,18 @@ export function CalendarView({ items, onSelectItem, onItemsChanged }: CalendarVi
   const toggleChannel = (p: Platform) =>
     setChannels((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
 
-  const confirmSchedule = (item: ContentItem, post: PlatformPost) => {
-    mockRepo.updatePostStatus(item.id, post.platform, 'SCHEDULED', new Date(when).toISOString());
-    setSchedulingId(null);
-    onItemsChanged();
+  const confirmSchedule = async (item: ContentItem, post: PlatformPost) => {
+    setSaving(true);
+    setScheduleError(null);
+    try {
+      await api.schedule(item.id, post.platform, new Date(when).toISOString());
+      setSchedulingId(null);
+      onItemsChanged();
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : 'Could not schedule the post.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const Chip = ({ entry }: { entry: Entry }) => {
@@ -335,6 +345,11 @@ export function CalendarView({ items, onSelectItem, onItemsChanged }: CalendarVi
                         </Button>
                       )}
                     </div>
+                    {open && scheduleError && (
+                      <p className="text-xs text-neutral-900 border border-neutral-800 p-2" role="alert">
+                        {scheduleError}
+                      </p>
+                    )}
                     {open && (
                       <div className="flex items-center gap-2">
                         <Input
@@ -343,7 +358,7 @@ export function CalendarView({ items, onSelectItem, onItemsChanged }: CalendarVi
                           onChange={(e) => setWhen(e.target.value)}
                           className="flex-1 min-w-0 px-2 py-1 text-xs"
                         />
-                        <Button variant="primary" size="sm" onClick={() => confirmSchedule(item, post)} disabled={!when}>
+                        <Button variant="primary" size="sm" onClick={() => confirmSchedule(item, post)} disabled={!when || saving}>
                           Confirm
                         </Button>
                         <Button size="sm" onClick={() => setSchedulingId(null)}>

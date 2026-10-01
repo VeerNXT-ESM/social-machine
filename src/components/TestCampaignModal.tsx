@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { ContentItem, Platform } from '@/types';
 import { PlatformPreviews } from './PlatformPreviews';
 import { Button, Modal, StatusLabel } from './ui';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import {
   Zap,
   CheckCircle2,
@@ -53,35 +53,38 @@ export function TestCampaignModal({ isOpen, onClose, onCompleteTest }: TestCampa
     setStep('generating');
     setLogs([]);
     setTestItems([]);
-    addLog('Starting Requirement #35 End-to-End Test Campaign (2 posts per channel)...');
+    addLog('Starting the end-to-end test (2 posts per channel)...');
 
     try {
       const generated: ContentItem[] = [];
       for (const source of TEST_SOURCES) {
-        addLog(`Generating "${source.title}" for 4 platforms + image (GPT Image 2.5 Flare, medium)...`);
+        addLog(`Generating "${source.title}" for 4 channels plus an image (GPT Image 2.5 Flare, medium)...`);
         const res = await fetch('/api/content/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...source,
-            sourceType: 'announcement',
+            sourceType: 'article',
             selectedPlatforms: ['linkedin', 'x', 'instagram', 'facebook'],
           }),
         });
         const data = await res.json();
         if (!data.success || !data.item) throw new Error(data.error || 'Generation failed');
-        // The API cannot reach browser storage, so persist the item here.
-        mockRepo.saveItem(data.item);
+        // The server saves the item to the database; the response is the saved copy.
         generated.push(data.item);
         setTestItems([...generated]);
-        addLog(`[OK] "${source.title}": LinkedIn, X, Instagram and Facebook posts created.`);
+        addLog(`[OK] "${source.title}": LinkedIn, X, Instagram and Facebook posts saved.`);
       }
       const allPosts = generated.flatMap((item) => Object.values(item.posts || {}));
       const banned = allPosts.filter((post) =>
         /agniveer/i.test([post.text, post.cta, ...(post.hashtags || [])].join(' '))
       ).length;
       addLog(`[OK] Checked ${allPosts.length} posts across ${generated.length} items (expected 8 across 2).`);
-      addLog(banned === 0 ? '[OK] Brand check passed: no prohibited terms found.' : `[Error] Brand check failed: ${banned} post(s) contain a prohibited term.`);
+      addLog(
+        banned === 0
+          ? '[OK] Brand check passed: no prohibited terms found.'
+          : `[Error] Brand check failed: ${banned} post(s) contain a prohibited term.`
+      );
       setStep('generated');
     } catch (err) {
       addLog(`[Error] ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -99,29 +102,14 @@ export function TestCampaignModal({ isOpen, onClose, onCompleteTest }: TestCampa
     try {
       for (const item of testItems) {
         addLog(`Approving all 4 posts for "${item.title}"...`);
-        for (const p of platforms) mockRepo.updatePostStatus(item.id, p, 'APPROVED');
+        let latest = await api.approve(item.id);
 
         for (const p of platforms) {
-          const post = mockRepo.getItemById(item.id)?.posts?.[p];
-          addLog(`Publishing ${p.toUpperCase()} via MockPublishingProvider...`);
-          const pubRes = await fetch('/api/publish', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contentItemId: item.id,
-              platform: p,
-              action: 'publish_now',
-              mode: 'mock',
-              post,
-            }),
-          });
-          const pubData = await pubRes.json();
-          if (!pubData.success) throw new Error(pubData.error || `Publish failed for ${p}`);
-          mockRepo.updatePostStatus(item.id, p, 'PUBLISHED');
-          addLog(`[OK] ${p.toUpperCase()} Published! External ID: ${pubData.external_id}`);
+          addLog(`Publishing ${p.toUpperCase()} through the mock provider...`);
+          latest = await api.publish(item.id, p);
+          addLog(`[OK] ${p.toUpperCase()} published. External ID: ${latest.posts?.[p]?.external_post_id ?? 'n/a'}`);
         }
-        const finalItem = mockRepo.getItemById(item.id);
-        if (finalItem) finals.push(finalItem);
+        finals.push(latest);
       }
     } catch (err) {
       addLog(`[Error] ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -132,7 +120,7 @@ export function TestCampaignModal({ isOpen, onClose, onCompleteTest }: TestCampa
     setTestItems(finals);
     if (finals[0]) onCompleteTest(finals[0]);
     setStep('done');
-    addLog('[Complete] End-to-End Test Completed Successfully! Status verified as PUBLISHED.');
+    addLog('[Complete] End-to-end test finished. All posts are published.');
   };
 
   return (

@@ -14,7 +14,7 @@ import { AnalyticsView } from '@/components/AnalyticsView';
 import { SettingsView } from '@/components/SettingsView';
 import { TestCampaignModal } from '@/components/TestCampaignModal';
 import { ManualPublishModal } from '@/components/ManualPublishModal';
-import { mockRepo } from '@/lib/mockStore';
+import { api } from '@/lib/api';
 import { ContentItem, PlatformPost } from '@/types';
 
 export default function Home() {
@@ -27,21 +27,59 @@ export default function Home() {
   const [testModalOpen, setTestModalOpen] = useState<boolean>(false);
   const [manualPost, setManualPost] = useState<PlatformPost | null>(null);
 
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadItems = React.useCallback(async () => {
+    try {
+      const loaded = await api.listItems();
+      setItems(loaded);
+      setSelectedItem((current) => (current ? loaded.find((i) => i.id === current.id) ?? null : current));
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load content.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    setItems(mockRepo.getItems());
+    // Initial load from the database. `active` stops a late response from updating an unmounted page.
+    let active = true;
+    api
+      .listItems()
+      .then((loaded) => {
+        if (!active) return;
+        setItems(loaded);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (active) setLoadError(err instanceof Error ? err.message : 'Could not load content.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const refreshItems = () => {
-    const updated = mockRepo.getItems();
-    setItems(updated);
-    if (selectedItem) {
-      const refreshed = updated.find((i) => i.id === selectedItem.id);
-      if (refreshed) setSelectedItem(refreshed);
-    }
+    void loadItems();
+  };
+
+  /** Put an updated item (returned by the API) into the list and the open editor. */
+  const applyItem = (updated: ContentItem) => {
+    setItems((current) =>
+      current.some((i) => i.id === updated.id)
+        ? current.map((i) => (i.id === updated.id ? updated : i))
+        : [updated, ...current]
+    );
+    setSelectedItem((current) => (current && current.id === updated.id ? updated : current));
   };
 
   const handleContentGenerated = (newItem: ContentItem) => {
-    refreshItems();
+    applyItem(newItem);
     setSelectedItem(newItem);
     setActiveTab('content');
   };
@@ -74,6 +112,15 @@ export default function Home() {
         />
 
         <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">
+          {loadError && (
+            <div className="mb-4 p-3 bg-white border border-neutral-800 text-neutral-900 text-sm flex items-center justify-between gap-3" role="alert">
+              <span>Could not load content: {loadError}</span>
+              <button onClick={refreshItems} className="underline font-medium shrink-0">
+                Try again
+              </button>
+            </div>
+          )}
+          {loading && !loadError && <div className="mb-4 text-sm text-neutral-600">Loading content...</div>}
           {activeTab === 'dashboard' && (
             <DashboardView
               items={items}
@@ -91,10 +138,7 @@ export default function Home() {
             selectedItem ? (
               <ContentEditorView
                 item={selectedItem}
-                onUpdateItem={(updated) => {
-                  setSelectedItem(updated);
-                  refreshItems();
-                }}
+                onUpdateItem={applyItem}
                 onOpenManualPublish={(post) => setManualPost(post)}
               />
             ) : (
