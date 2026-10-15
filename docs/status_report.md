@@ -33,6 +33,8 @@ A Next.js 16 (App Router, Tailwind 4) app that turns one idea or article into pl
 | 11 | **Corporate UI restyle.** Grey and white only, no rounded corners, no gradients, glow, glass or emoji. Inter font, page title fixed, compact dashboard header, test campaign moved to Settings > Developer tools. A converter script remapped about 60 colour patterns; a bug in its first run (side borders lost) was found and fixed | Done, reviewed in 1440 px screenshots. Media Library, Campaigns, both modals and smaller widths not yet reviewed |
 | 13 | **Layout redesign.** Calendar rebuilt with real week/month/list views, filters and a schedule panel; Content Library is now a filterable table with bulk approve; composer is two columns; responsive shell checked at 1440, 1024 and 390 px | Done, reviewed in screenshots. Test modal after real generation not re-run |
 | 15 | **Server-side storage (Supabase).** Content items, platform posts and campaigns now live in the database. New server layer (`src/lib/db/`), API routes (`/api/items`, `/api/items/[id]`, `.../posts/[platform]`, `.../approve`), and generate and publish routes that read and write the database. Browser client in `src/lib/api.ts`; every screen and modal moved over. Editor autosaves (debounced, flushed on leave). Until sign-in exists, rows belong to one workspace-owner account created through the admin API. Schema applied with tightened row level security (no open policies). Verified: 26 API checks, a full browser run with a fresh profile (content survives a reload and a new browser), and rows confirmed in the database | Done |
+| 17 | **Content sources scraper.** Finds article links on defence and strategy sites to inspire posts. Safe fetcher (blocks internal addresses, size and time limits, robots.txt, per-site rate limit), RSS and web-page readers, spam and off-site filters, and a transparent keyword relevance score. Sources screen (scan, filter, save, dismiss, create content from a link), source and link storage with tables in `02_content_sources.sql`. The page-reader route was hardened against internal-address (SSRF) requests and now extracts proper article text. **Verified:** all 6 sources against the live sites (IMR 42 real links with 11 casino-spam links blocked; IDSA 35; CLAWS 25; NMF 10; IDR 50 with filler scored 0; USI 16 journal articles) and the SSRF checks. **Not yet verified:** database storage and the Sources screen (project paused) | Partly done |
+| 16 | **Images to Supabase Storage.** New `src/lib/db/media.ts` (public `media` bucket, records each upload in the `media` table) and `imageGen.ts` now uploads instead of writing to disk. **Not yet run:** the 2 existing images still need migrating and new uploads need a live test (project paused) | Code written, unverified |
 | 14 | **Shared UI component set** (`src/components/ui/`: Button, Card, PageHeader, Field, Modal, Tabs, SegmentedControl, StatCard, EmptyState, StatusLabel, `cn()` helper) applied to every screen and modal. **Bug fixed:** Publish now and Schedule in the editor failed because the post was not sent to the API; both now work (tested in the browser) | Done |
 | 12 | **Test modal check made real.** It logged "Verified... no Agniveer" without checking. It now counts the posts and scans them for the prohibited term | Done, not run against live generation |
 
@@ -46,6 +48,8 @@ A Next.js 16 (App Router, Tailwind 4) app that turns one idea or article into pl
 Assumes about Rs 96.5 per USD (from a web search, not a live rate). Excludes ad spend, staff time, hosting, GST and bank fees. Check the OpenAI usage dashboard for real spend.
 
 ## 4. Known issues and risks
+
+0. **Supabase project is paused.** The free plan pauses projects after about a week of inactivity (it happened between 1 and 15 Oct 2026). Restore it from the dashboard (Restore project). To prevent a repeat, upgrade the plan or schedule a regular request to the project. Until then, storage, images and Sources cannot be tested.
 
 1. **Images are still files on disk (next step).** Posts store only the image path. `imageGen.ts` writes to `public/generated/` on disk. That works locally but not on Vercel (read-only filesystem). Before deploying, upload to Supabase Storage (the `media` bucket already planned in the README) or similar and store the URL.
 2. **Data lives in the browser only.** Clearing site data loses all content. `localStorage` also has a ~5 MB limit; images are stored as file paths so this is fine for now.
@@ -73,7 +77,7 @@ Assumes about Rs 96.5 per USD (from a web search, not a live rate). Excludes ad 
 
 ## 7. Suggested next steps
 
-1. Move generated images into Supabase Storage (needed before deploying), then campaigns, media and brand settings into the database. Then sign-in.
+1. After restoring Supabase: run `02_content_sources.sql`, migrate the 2 local images, then test image upload and the Sources screen end to end. Then campaigns, media and brand settings into the database. Then sign-in.
 2. Remaining UI items: calendar drag-to-reschedule and day view, replace sample data and images ([plan](UI_REDESIGN_PLAN.md), section 5).
 2. Client review of the campaign workbook; resolve the open decisions in section 5.
 3. Before any deployment: move images to Supabase Storage and move persistence off `localStorage`.

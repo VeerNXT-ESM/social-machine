@@ -1,4 +1,5 @@
 import { ContentItem, Platform, PostStatus } from '@/types';
+import type { LinkRow, LinkStatus, ScanSummary, SourceKind, SourceRow } from '@/types/sources';
 
 /** Thin browser client for the app's own API routes. Every call throws an Error with a readable message. */
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -75,5 +76,54 @@ export const api = {
     });
     if (!data.item) throw new Error('Scheduled, but the updated post could not be loaded');
     return data.item;
+  },
+
+  // ---------------------------------------------------------------- content sources and links
+
+  async listSources(): Promise<SourceRow[]> {
+    return (await request<{ sources: SourceRow[] }>('/api/sources')).sources;
+  },
+
+  async addSuggestedSources(): Promise<{ added: number; sources: SourceRow[] }> {
+    return request('/api/sources/seed', { method: 'POST' });
+  },
+
+  /** Tests the address first; throws a readable error if it does not work. */
+  async addSource(input: { name: string; url: string; kind: SourceKind; note?: string }) {
+    return request<{ source: SourceRow; scan: ScanSummary }>('/api/sources', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  async setSourceEnabled(id: string, enabled: boolean): Promise<void> {
+    await request(`/api/sources/${id}`, { method: 'PATCH', body: JSON.stringify({ enabled }) });
+  },
+
+  async deleteSource(id: string): Promise<void> {
+    await request(`/api/sources/${id}`, { method: 'DELETE' });
+  },
+
+  /** Scan one source, or every enabled source when no id is given. */
+  async scan(sourceId?: string): Promise<{ summaries: ScanSummary[]; added: number }> {
+    return request('/api/sources/scan', { method: 'POST', body: JSON.stringify(sourceId ? { sourceId } : {}) });
+  },
+
+  async listLinks(filter: {
+    status?: LinkStatus | 'all';
+    source?: string;
+    minRelevance?: number;
+    q?: string;
+  } = {}): Promise<LinkRow[]> {
+    const params = new URLSearchParams();
+    if (filter.status) params.set('status', filter.status);
+    if (filter.source) params.set('source', filter.source);
+    if (filter.minRelevance) params.set('minRelevance', String(filter.minRelevance));
+    if (filter.q) params.set('q', filter.q);
+    return (await request<{ links: LinkRow[] }>(`/api/links?${params.toString()}`)).links;
+  },
+
+  async setLinkStatus(id: string, status: LinkStatus): Promise<void> {
+    await request(`/api/links/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
   },
 };

@@ -8,6 +8,7 @@ import {
   PlusCircle,
   FileText,
   Calendar,
+  Newspaper,
   Image as ImageIcon,
   FolderKanban,
   BarChart3,
@@ -22,6 +23,7 @@ export type NavTab =
   | 'create'
   | 'content'
   | 'calendar'
+  | 'sources'
   | 'media'
   | 'campaigns'
   | 'analytics'
@@ -39,6 +41,7 @@ export function Sidebar({ activeTab, setActiveTab, onOpenTestCampaignModal }: Si
     { id: 'create', label: 'Create', icon: <PlusCircle className="w-5 h-5" />, badge: 'AI' },
     { id: 'content', label: 'Content Library', icon: <FileText className="w-5 h-5" /> },
     { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-5 h-5" /> },
+    { id: 'sources', label: 'Sources', icon: <Newspaper className="w-5 h-5" /> },
     { id: 'media', label: 'Media Library', icon: <ImageIcon className="w-5 h-5" /> },
     { id: 'campaigns', label: 'Campaigns', icon: <FolderKanban className="w-5 h-5" /> },
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },

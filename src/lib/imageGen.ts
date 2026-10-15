@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { saveImage } from '@/lib/db/media';
 
 export const IMAGE_MODEL = 'gpt-image-2.5-flare';
 export const IMAGE_QUALITY = 'medium' as const;
@@ -22,9 +21,9 @@ const SIZE_BY_RATIO = {
 } as const;
 
 /**
- * Generates an image with GPT Image 2.5 Flare (medium quality), stores it under
- * public/generated and returns its public URL. Falls back to the brand logo when
- * no API key is configured or generation fails, so the flow never breaks.
+ * Generates an image with GPT Image 2.5 Flare (medium quality), uploads it to Supabase
+ * Storage and returns its public URL. Falls back to the brand logo when no API key is
+ * configured or generation or upload fails, so the flow never breaks.
  */
 export async function generatePostImage(
   prompt: string,
@@ -45,11 +44,10 @@ export async function generatePostImage(
     const b64 = res.data?.[0]?.b64_json;
     if (!b64) throw new Error('No image data returned');
 
-    const dir = path.join(process.cwd(), 'public', 'generated');
-    await mkdir(dir, { recursive: true });
-    const name = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-    await writeFile(path.join(dir, name), Buffer.from(b64, 'base64'));
-    return `/generated/${name}`;
+    // Stored in Supabase Storage (permanent public URL), not on the server's disk.
+    const size = SIZE_BY_RATIO[aspectRatio] ?? '1024x1024';
+    const [width, height] = size.split('x').map(Number);
+    return await saveImage({ bytes: Buffer.from(b64, 'base64'), mimeType: 'image/png', width, height });
   } catch (err) {
     console.error('Image generation failed, using fallback logo:', err);
     return FALLBACK_IMAGE;

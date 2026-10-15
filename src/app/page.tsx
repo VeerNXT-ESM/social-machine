@@ -8,6 +8,7 @@ import { CreateContentView } from '@/components/CreateContentView';
 import { ContentEditorView } from '@/components/ContentEditorView';
 import { ContentLibraryView } from '@/components/ContentLibraryView';
 import { CalendarView } from '@/components/CalendarView';
+import { SourcesView } from '@/components/SourcesView';
 import { MediaLibraryView } from '@/components/MediaLibraryView';
 import { CampaignsView } from '@/components/CampaignsView';
 import { AnalyticsView } from '@/components/AnalyticsView';
@@ -16,6 +17,7 @@ import { TestCampaignModal } from '@/components/TestCampaignModal';
 import { ManualPublishModal } from '@/components/ManualPublishModal';
 import { api } from '@/lib/api';
 import { ContentItem, PlatformPost } from '@/types';
+import type { ContentPrefill } from '@/types/sources';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -26,6 +28,7 @@ export default function Home() {
   // Modals
   const [testModalOpen, setTestModalOpen] = useState<boolean>(false);
   const [manualPost, setManualPost] = useState<PlatformPost | null>(null);
+  const [prefill, setPrefill] = useState<ContentPrefill | null>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -80,6 +83,7 @@ export default function Home() {
 
   const handleContentGenerated = (newItem: ContentItem) => {
     applyItem(newItem);
+    setPrefill(null);
     setSelectedItem(newItem);
     setActiveTab('content');
   };
@@ -96,6 +100,7 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={(tab) => {
           if (tab !== 'content') setSelectedItem(null);
+          if (tab === 'create') setPrefill(null);
           setActiveTab(tab);
         }}
         onOpenTestCampaignModal={() => setTestModalOpen(true)}
@@ -131,7 +136,7 @@ export default function Home() {
           )}
 
           {activeTab === 'create' && (
-            <CreateContentView onGenerated={handleContentGenerated} />
+            <CreateContentView key={prefill?.linkId ?? 'blank'} prefill={prefill} onGenerated={handleContentGenerated} />
           )}
 
           {activeTab === 'content' && (
@@ -153,6 +158,15 @@ export default function Home() {
 
           {activeTab === 'calendar' && (
             <CalendarView items={items} onSelectItem={handleSelectItem} onItemsChanged={refreshItems} />
+          )}
+
+          {activeTab === 'sources' && (
+            <SourcesView
+              onCreateFromLink={(p) => {
+                setPrefill(p);
+                setActiveTab('create');
+              }}
+            />
           )}
 
           {activeTab === 'media' && <MediaLibraryView />}

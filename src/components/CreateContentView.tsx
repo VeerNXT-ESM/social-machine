@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, ContentType, SourceType, ContentItem } from '@/types';
+import type { ContentPrefill } from '@/types/sources';
 import {
   FileText,
   Link as LinkIcon,
@@ -18,17 +19,35 @@ import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 
 interface CreateContentViewProps {
   onGenerated: (newItem: ContentItem) => void;
+  /** Set when content is started from a link found on the Sources screen. */
+  prefill?: ContentPrefill | null;
 }
 
-export function CreateContentView({ onGenerated }: CreateContentViewProps) {
-  const [sourceType, setSourceType] = useState<SourceType>('article');
-  const [title, setTitle] = useState('');
-  const [sourceContent, setSourceContent] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
-  const [campaign, setCampaign] = useState('VeerNXT Launch');
-  const [contentType, setContentType] = useState<ContentType>('Announcement');
+/** Read a web page through the server; returns its title and main text. */
+async function readPage(url: string): Promise<{ title: string; text: string }> {
+  const res = await fetch('/api/content/scrape', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || "We couldn't read this page. Paste the article text instead.");
+  return { title: data.title ?? '', text: data.extractedText ?? '' };
+}
+
+export function CreateContentView({ onGenerated, prefill }: CreateContentViewProps) {
+  const [sourceType, setSourceType] = useState<SourceType>(prefill ? 'link' : 'article');
+  const [title, setTitle] = useState(prefill?.title ?? '');
+  const [sourceContent, setSourceContent] = useState(prefill?.summary ?? '');
+  const [websiteUrl, setWebsiteUrl] = useState(prefill?.url ?? '');
+  const [campaign, setCampaign] = useState(prefill ? 'Industry insights' : 'VeerNXT Launch');
+  const [contentType, setContentType] = useState<ContentType>(prefill ? 'Thought Leadership' : 'Announcement');
   const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.com');
-  const [additionalInstructions, setAdditionalInstructions] = useState('');
+  const [additionalInstructions, setAdditionalInstructions] = useState(
+    prefill
+      ? `Based on an article from ${prefill.sourceName}. Write in your own words, do not quote at length, credit ${prefill.sourceName} as the source, and connect the topic to Ex-Service Men and their civilian careers where it genuinely fits.`
+      : ''
+  );
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
     'linkedin',
     'x',
@@ -37,7 +56,7 @@ export function CreateContentView({ onGenerated }: CreateContentViewProps) {
   ]);
 
   const [loading, setLoading] = useState(false);
-  const [scrapingUrl, setScrapingUrl] = useState(false);
+  const [scrapingUrl, setScrapingUrl] = useState(Boolean(prefill));
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Content type options list
@@ -53,6 +72,25 @@ export function CreateContentView({ onGenerated }: CreateContentViewProps) {
     'Evergreen',
     'Other',
   ];
+
+  // Started from a discovered link: read the article text once so the draft is based on the real article.
+  useEffect(() => {
+    if (!prefill) return;
+    let active = true;
+    readPage(prefill.url)
+      .then(({ text }) => {
+        if (active && text) setSourceContent(text);
+      })
+      .catch((err) => {
+        if (active) setErrorMsg(err instanceof Error ? err.message : "We couldn't read this page. Paste the article text instead.");
+      })
+      .finally(() => {
+        if (active) setScrapingUrl(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [prefill]);
 
   // Prefill Example handler
   const handleLoadExample = () => {
@@ -132,6 +170,7 @@ export function CreateContentView({ onGenerated }: CreateContentViewProps) {
           cta,
           selectedPlatforms,
           additionalInstructions,
+          sourceLinkId: prefill?.linkId,
         }),
       });
 

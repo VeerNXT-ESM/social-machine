@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
+import { assertPublicUrl, safeFetch } from '@/lib/scraper/safeFetch';
 
+const SOCIAL_HOSTS = ['twitter.com', 'x.com', 'linkedin.com', 'facebook.com', 'instagram.com'];
+const MAX_TEXT_CHARS = 6000;
+
+const UNREADABLE = "We couldn't read this page. Paste the article text instead.";
+
+/**
+ * Read one web page the user chose and return its title and main text, for use as source material.
+ * The address is checked so it cannot point at internal networks, and the page size and time are limited.
+ */
 export async function POST(req: Request) {
   try {
     const { url } = await req.json();
@@ -8,79 +19,60 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    const lowerUrl = url.toLowerCase();
-    // Do NOT scrape social media sites as per requirement
-    if (
-      lowerUrl.includes('twitter.com') ||
-      lowerUrl.includes('x.com') ||
-      lowerUrl.includes('linkedin.com') ||
-      lowerUrl.includes('facebook.com') ||
-      lowerUrl.includes('instagram.com')
-    ) {
+    let parsed: URL;
+    try {
+      parsed = await assertPublicUrl(url);
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : 'That address is not allowed.' }, { status: 400 });
+    }
+
+    // Social media pages cannot be read for privacy reasons
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (SOCIAL_HOSTS.some((h) => host === h || host.endsWith('.' + h))) {
       return NextResponse.json(
         {
           error:
-            "Social media URLs cannot be directly extracted due to privacy policies. Please paste the text or article directly.",
+            'Social media URLs cannot be directly extracted due to privacy policies. Please paste the text or article directly.',
         },
         { status: 400 }
       );
     }
 
-    // Attempt server-side fetch with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 VeerNXTReader/1.0',
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: "We couldn't read this page. Paste the article text instead." },
-        { status: 422 }
-      );
+    // This is a single page the user asked for, so robots.txt is not applied; limits still are.
+    const res = await safeFetch(parsed.toString(), { respectRobots: false, timeoutMs: 10_000 });
+    if (res.status !== 200 || !/html|xml/i.test(res.contentType)) {
+      return NextResponse.json({ error: UNREADABLE }, { status: 422 });
     }
 
-    const html = await res.text();
+    const $ = cheerio.load(res.text);
+    const title =
+      $('meta[property="og:title"]').attr('content')?.trim() || $('title').first().text().replace(/\s+/g, ' ').trim() || '';
 
-    // Extract title and text content using basic regex parsing
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : '';
+    // Prefer the article body; drop navigation, scripts and page furniture.
+    $('script, style, noscript, nav, header, footer, aside, form, iframe, .menu, .sidebar, .comments, .share').remove();
+    const container = ['article', '[role="main"]', 'main', '.entry-content', '.post-content', '.article-content', 'body']
+      .map((sel) => $(sel).first())
+      .find((el) => el.length > 0 && el.text().replace(/\s+/g, ' ').trim().length > 200);
+    const text = (container ?? $('body'))
+      .find('p, li, h1, h2, h3, blockquote')
+      .map((_, el) => $(el).text().replace(/\s+/g, ' ').trim())
+      .get()
+      .filter((t) => t.length > 0)
+      .join('\n\n');
 
-    // Clean HTML tags to extract readable plain text
-    const cleanText = html
-      .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
-      .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
-      .replace(/<header[^>]*>([\s\S]*?)<\/header>/gi, '')
-      .replace(/<footer[^>]*>([\s\S]*?)<\/footer>/gi, '')
-      .replace(/<nav[^>]*>([\s\S]*?)<\/nav>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (!cleanText || cleanText.length < 50) {
-      return NextResponse.json(
-        { error: "We couldn't read this page. Paste the article text instead." },
-        { status: 422 }
-      );
+    const clean = text.length >= 50 ? text : $('body').text().replace(/\s+/g, ' ').trim();
+    if (!clean || clean.length < 50) {
+      return NextResponse.json({ error: UNREADABLE }, { status: 422 });
     }
 
     return NextResponse.json({
       success: true,
       title: title || 'Extracted Article',
-      extractedText: cleanText.substring(0, 4000),
+      extractedText: clean.substring(0, MAX_TEXT_CHARS),
       url,
     });
-  } catch {
-    return NextResponse.json(
-      { error: "We couldn't read this page. Paste the article text instead." },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('POST /api/content/scrape failed:', err);
+    return NextResponse.json({ error: UNREADABLE }, { status: 500 });
   }
 }

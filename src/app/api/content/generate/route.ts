@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
 import { createItem, NewPost } from '@/lib/db/items';
+import { updateLink } from '@/lib/db/sources';
 import { isPlatform, serverError } from '@/lib/db/http';
 import { Platform } from '@/types';
 
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
       campaign,
       cta,
       additionalInstructions,
+      sourceLinkId,
     } = body;
 
     const requested: unknown[] = Array.isArray(body.selectedPlatforms)
@@ -78,6 +80,15 @@ export async function POST(req: Request) {
       visual_direction: aiResult.visual_direction,
       posts,
     });
+
+    // Content created from a discovered link: mark the link as used (best effort; the content is already saved)
+    if (typeof sourceLinkId === 'string' && sourceLinkId) {
+      try {
+        await updateLink(sourceLinkId, { status: 'used', content_item_id: item.id });
+      } catch (err) {
+        console.error('Could not mark the source link as used:', err);
+      }
+    }
 
     return NextResponse.json({ success: true, item, ai_result: aiResult });
   } catch (err) {
