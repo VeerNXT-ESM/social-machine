@@ -16,6 +16,8 @@ const RULES: Rule[] = [
   { label: 'ex-servicemen', pattern: /\bex[- ]?service ?(men|man|personnel)\b|\bESM\b/i, points: 30 },
   { label: 'resettlement', pattern: /\bresettle(ment)?\b|\bDGR\b|directorate general of resettlement/i, points: 30 },
   { label: 'second career', pattern: /second career|career transition|post[- ]retirement|lateral (entry|induction)/i, points: 25 },
+  { label: 'pay & allowances', pattern: /pay commission|\b(7th|8th|9th) ?CPC\b|\bCPC\b|\ballowances?\b|\bsalar(y|ies)\b|pay (scale|structure|parity)/i, points: 25 },
+  { label: 'service conditions', pattern: /\bin uniform\b|uniformed|service conditions|rights of (soldiers|personnel|servicemen)|military (families|personnel)|\bmorale\b/i, points: 20 },
   { label: 'pension', pattern: /\bpension(s|ers)?\b|\bOROP\b|one rank one pension/i, points: 20 },
   { label: 'welfare', pattern: /\bECHS\b|\bSainik\b|war widow|ex-servicemen welfare|\bKSB\b|kendriya sainik/i, points: 25 },
   { label: 'employment', pattern: /employab|employment|reskill|upskill|skill(ing| development)|vocational/i, points: 15 },

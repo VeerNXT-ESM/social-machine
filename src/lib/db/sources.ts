@@ -101,13 +101,34 @@ export async function scanAndSave(source: SourceRow): Promise<ScanSummary> {
     const rows = result.links.map((l) => ({ link: l, hash: hashUrl(l.url) }));
     const { data: known, error: readError } = await supabase
       .from('source_links')
-      .select('url_hash')
+      .select('id, url_hash, relevance, matched_keywords, mentions_restricted_term')
       .eq('user_id', userId)
       .in('url_hash', rows.map((r) => r.hash));
     if (readError) {
       error = readError.message;
     } else {
-      const have = new Set((known ?? []).map((k) => k.url_hash));
+      const have = new Map((known ?? []).map((k) => [k.url_hash as string, k]));
+
+      // Links we already have: refresh their score if the scoring rules have changed since.
+      for (const { link, hash } of rows) {
+        const existing = have.get(hash);
+        if (!existing) continue;
+        const changed =
+          existing.relevance !== link.relevance ||
+          existing.mentions_restricted_term !== link.mentionsRestrictedTerm ||
+          JSON.stringify(existing.matched_keywords ?? []) !== JSON.stringify(link.matchedKeywords);
+        if (changed) {
+          await supabase
+            .from('source_links')
+            .update({
+              relevance: link.relevance,
+              matched_keywords: link.matchedKeywords,
+              mentions_restricted_term: link.mentionsRestrictedTerm,
+            })
+            .eq('id', existing.id);
+        }
+      }
+
       const fresh = rows.filter((r) => !have.has(r.hash));
       if (fresh.length > 0) {
         const { error: insertError } = await supabase.from('source_links').insert(
@@ -197,4 +218,18 @@ export async function updateLink(id: string, patch: { status?: LinkStatus; conte
   const supabase = createAdminClient();
   const { error } = await supabase.from('source_links').update(patch).eq('id', id);
   if (error) throw new Error(error.message);
+}
+
+/** Name of the source an item was made from (via the link it was created from), if any. */
+export async function getSourceNameForItem(itemId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('source_links')
+    .select('content_sources(name)')
+    .eq('content_item_id', itemId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const joined = data as unknown as { content_sources: { name: string } | null } | null;
+  return joined?.content_sources?.name ?? null;
 }

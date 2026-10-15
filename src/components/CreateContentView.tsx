@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Platform, ContentType, SourceType, ContentItem } from '@/types';
 import type { ContentPrefill } from '@/types/sources';
+import { insightInstructions } from '@/lib/insightRules';
 import {
   FileText,
   Link as LinkIcon,
@@ -44,9 +45,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
   const [contentType, setContentType] = useState<ContentType>(prefill ? 'Thought Leadership' : 'Announcement');
   const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.com');
   const [additionalInstructions, setAdditionalInstructions] = useState(
-    prefill
-      ? `Based on an article from ${prefill.sourceName}. Write in your own words, do not quote at length, credit ${prefill.sourceName} as the source, and connect the topic to Ex-Service Men and their civilian careers where it genuinely fits.`
-      : ''
+    prefill ? insightInstructions(prefill.sourceName) : ''
   );
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
     'linkedin',

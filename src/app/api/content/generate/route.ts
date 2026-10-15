@@ -2,9 +2,14 @@ import { NextResponse } from 'next/server';
 import { generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
 import { createItem, NewPost } from '@/lib/db/items';
-import { updateLink } from '@/lib/db/sources';
+import { getSourceNameForItem, updateLink } from '@/lib/db/sources';
+import { enforceInsightRules } from '@/lib/contentGuard';
+import { getItem } from '@/lib/db/items';
 import { isPlatform, serverError } from '@/lib/db/http';
 import { Platform } from '@/types';
+
+// Generating text, an image and (for source articles) rule checks can take a while.
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
@@ -82,15 +87,23 @@ export async function POST(req: Request) {
     });
 
     // Content created from a discovered link: mark the link as used (best effort; the content is already saved)
+    let finalItem = item;
+    let guard: Awaited<ReturnType<typeof enforceInsightRules>> | null = null;
     if (typeof sourceLinkId === 'string' && sourceLinkId) {
       try {
         await updateLink(sourceLinkId, { status: 'used', content_item_id: item.id });
+        // Posts made from an outside article are checked against the insight rules and fixed if needed
+        const sourceName = await getSourceNameForItem(item.id);
+        if (sourceName) {
+          guard = await enforceInsightRules(item.id, sourceName);
+          finalItem = (await getItem(item.id)) ?? item;
+        }
       } catch (err) {
-        console.error('Could not mark the source link as used:', err);
+        console.error('Source link handling failed (the content itself is saved):', err);
       }
     }
 
-    return NextResponse.json({ success: true, item, ai_result: aiResult });
+    return NextResponse.json({ success: true, item: finalItem, ai_result: aiResult, guard });
   } catch (err) {
     return serverError('POST /api/content/generate', err);
   }

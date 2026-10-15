@@ -3,7 +3,7 @@
  * adult SEO posts (seen in a real feed during testing), and those must never reach the interface.
  */
 const SPAM =
-  /\b(casino|casinos|betting|sportsbook|bookmaker|slots?|poker|gambl\w*|jackpot|roulette|lottery|pin-?up|1xbet|mostbet|melbet|aviator|bahis|kumar|yat[ıi]rma|crypto (casino|exchange)|payday loans?|viagra|cialis|escort|porn\w*|adult chat|xxx|forex signals?|binary options|sex (cam|chat))\b/i;
+  /\b(casino|casinos|betting|sportsbook|bookmaker|slots?|poker|gambl\w*|jackpot|roulette|lottery|pin-?up|1xbet|mostbet|melbet|aviator|bahis|yat[ıi]rma|crypto (casino|exchange)|payday loans?|viagra|cialis|escort|porn\w*|adult chat|xxx|forex signals?|binary options|sex (cam|chat))\b/i;
 
 export function looksLikeSpam(title: string, summary: string, url: string): boolean {
   return SPAM.test(title) || SPAM.test(summary) || SPAM.test(decodeURIComponent(url).replace(/[-_/]+/g, ' '));
