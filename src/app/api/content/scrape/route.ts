@@ -65,6 +65,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: UNREADABLE }, { status: 422 });
     }
 
+    // Quality gate: an article has real sentences. A page that is mostly menus, a video or a PDF viewer
+    // would otherwise hand the AI navigation text to "summarise".
+    const used = clean.substring(0, MAX_TEXT_CHARS); // check the same slice the AI will receive
+    const fullSentences = used.split(/(?<=[.!?])\s+/).filter((sentence) => sentence.split(/\s+/).length >= 8).length;
+    if (fullSentences < 4) {
+      return NextResponse.json(
+        { error: 'This page has very little article text (it may be mostly a video or a menu). Paste the article text instead.' },
+        { status: 422 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       title: title || 'Extracted Article',

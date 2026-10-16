@@ -9,6 +9,7 @@ import { ContentEditorView } from '@/components/ContentEditorView';
 import { ContentLibraryView } from '@/components/ContentLibraryView';
 import { CalendarView } from '@/components/CalendarView';
 import { SourcesView } from '@/components/SourcesView';
+import { PageHelp } from '@/components/PageHelp';
 import { MediaLibraryView } from '@/components/MediaLibraryView';
 import { CampaignsView } from '@/components/CampaignsView';
 import { AnalyticsView } from '@/components/AnalyticsView';
@@ -184,6 +185,8 @@ export default function Home() {
               onOpenTestCampaignModal={() => setTestModalOpen(true)}
             />
           )}
+
+          <PageHelp tab={activeTab} editing={activeTab === 'content' && selectedItem !== null} />
         </main>
       </div>
 
