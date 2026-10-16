@@ -190,6 +190,16 @@ export async function updatePost(itemId: string, platform: Platform, patch: Post
   return item;
 }
 
+/** Set the same image on every post of an item with a single update. */
+export async function setItemMedia(itemId: string, urls: string[]): Promise<ContentItem | null> {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('platform_posts').update({ media_urls: urls, updated_at: now }).eq('content_item_id', itemId);
+  if (error) throw new Error(error.message);
+  await supabase.from('content_items').update({ updated_at: now }).eq('id', itemId);
+  return getItem(itemId);
+}
+
 /** Approve every post of an item that is not already scheduled or published. */
 export async function approveItem(itemId: string, platforms?: Platform[]): Promise<ContentItem | null> {
   const item = await getItem(itemId);

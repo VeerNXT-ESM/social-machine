@@ -27,7 +27,9 @@ const SIZE_BY_RATIO = {
  */
 export async function generatePostImage(
   prompt: string,
-  aspectRatio: keyof typeof SIZE_BY_RATIO = '1:1'
+  aspectRatio: keyof typeof SIZE_BY_RATIO = '1:1',
+  /** Shown in the media library, usually the content title. */
+  label?: string
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'your_openai_api_key_here') return FALLBACK_IMAGE;
@@ -47,7 +49,8 @@ export async function generatePostImage(
     // Stored in Supabase Storage (permanent public URL), not on the server's disk.
     const size = SIZE_BY_RATIO[aspectRatio] ?? '1024x1024';
     const [width, height] = size.split('x').map(Number);
-    return await saveImage({ bytes: Buffer.from(b64, 'base64'), mimeType: 'image/png', width, height });
+    const filename = label ? `${label.replace(/[^\w .()-]/g, '').trim().slice(0, 80)} (AI image).png` : undefined;
+    return await saveImage({ bytes: Buffer.from(b64, 'base64'), mimeType: 'image/png', width, height, filename });
   } catch (err) {
     console.error('Image generation failed, using fallback logo:', err);
     return FALLBACK_IMAGE;

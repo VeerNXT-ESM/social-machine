@@ -33,6 +33,7 @@ const HELP: Record<string, HelpSection> = {
       { term: 'Source material', text: 'The facts the posts will be built from. The AI is told to use only what is written here, so better material gives better posts.' },
       { term: 'Details on the right', text: 'Campaign is the group the post belongs to. Content type describes its purpose. Call to action is the closing line that points readers to VeerNXT. Additional instructions let you steer the tone or angle.' },
       { term: 'Channels', text: 'Tick the platforms you want posts for. Each gets its own wording, because each platform reads differently.' },
+      { term: 'Image (optional)', text: 'Upload your own picture (PNG, JPEG or WebP, up to 10 MB) and it is used on every channel, and no AI image is created. Leave it empty and the app makes an image for you.' },
       { term: 'Generate', text: 'Creates the drafts and one image. It takes about half a minute and costs a few rupees of AI credit. When it finishes, you land on the editor.' },
     ],
   },
@@ -53,6 +54,7 @@ const HELP: Record<string, HelpSection> = {
       { term: 'Core message and Visual concept', text: 'The main idea the posts are based on, and a description of the image that goes with them.' },
       { term: 'Channel tabs', text: 'Switch between LinkedIn, X, Instagram and Facebook. The small word next to each name is that post\'s stage.' },
       { term: 'Editor and Preview', text: 'Editor lets you change the wording. Preview shows roughly how the post will look on that platform. Your edits save automatically; look for "Saved" above the text box.' },
+      { term: 'Image', text: 'Shows the picture that goes with the post. "Upload your own" replaces it with a picture from your computer; "Choose from library" reuses one you uploaded before; "Remove" takes it off. Leave "Use this image on all channels" ticked to change every channel at once, or untick it to change only the channel you are on.' },
       { term: 'AI refinements', text: 'One-click rewrites of the current post only: make it shorter, longer, change the opening line, or make it more professional or more conversational.' },
       { term: 'Approve', text: '"Approve" agrees the post for the channel you are on. "Approve all channels" does every channel at once.' },
       { term: 'Schedule post / Publish now', text: 'Schedule picks a date and time. Publish now sends it immediately. Both need the post to be approved, and in sandbox mode they are a rehearsal only.' },
@@ -85,11 +87,11 @@ const HELP: Record<string, HelpSection> = {
   },
   media: {
     title: 'The media library',
-    intro: 'A place to keep pictures and videos for your posts.',
+    intro: 'Every image stored for your posts, in one place: pictures you upload and images the app created for you.',
     items: [
-      { term: 'Upload media', text: 'Press the button or drag files onto the dashed box. Pictures show as thumbnails; the trash icon on a thumbnail removes it.' },
-      { term: 'This page is still a preview', text: 'Files added here are kept only until you close or refresh the page, and are not yet saved permanently. The sample files shown are examples.' },
-      { term: 'Where the AI images are', text: 'Images the app creates for your posts are stored safely in the cloud and appear inside each post. They are not listed on this page yet.' },
+      { term: 'Upload images', text: 'Press the button, or drag pictures onto the dashed box. You can add several at once. PNG, JPEG and WebP files up to 10 MB are accepted; other kinds of file are refused.' },
+      { term: 'Each picture', text: 'Shows its name, whether you uploaded it or the app created it, its size and the date. Uploaded pictures can be reused on any post from the editor using "Choose from library".' },
+      { term: 'Delete', text: 'Removes a picture permanently after you confirm. A picture that a post still uses cannot be deleted; the page tells you how many posts use it, so change those posts first.' },
     ],
   },
   campaigns: {

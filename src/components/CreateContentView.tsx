@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, ContentType, SourceType, ContentItem } from '@/types';
 import type { ContentPrefill } from '@/types/sources';
 import { insightInstructions } from '@/lib/insightRules';
+import { api } from '@/lib/api';
 import {
   FileText,
   Link as LinkIcon,
@@ -14,6 +15,8 @@ import {
   Loader2,
   Wand2,
   Zap,
+  ImagePlus,
+  Trash2,
 } from 'lucide-react';
 import { Button, Card, CardBody, CardHeader, Field, Input, PageHeader, Select, Tabs, Textarea } from './ui';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
@@ -55,6 +58,12 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
   ]);
 
   const [loading, setLoading] = useState(false);
+  // Optional picture supplied by the person; when set, no AI image is created
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageName, setImageName] = useState('');
+  const [imageThumb, setImageThumb] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInput = useRef<HTMLInputElement>(null);
   const [scrapingUrl, setScrapingUrl] = useState(Boolean(prefill));
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -134,6 +143,24 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
     }
   };
 
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingImage(true);
+    setErrorMsg(null);
+    try {
+      const media = await api.uploadImage(file);
+      setImageUrl(media.public_url);
+      setImageName(media.filename);
+      setImageThumb(media.thumb_url ?? media.public_url);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not upload the image.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Platform checkbox toggle
   const togglePlatform = (p: Platform) => {
     if (selectedPlatforms.includes(p)) {
@@ -170,6 +197,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
           selectedPlatforms,
           additionalInstructions,
           sourceLinkId: prefill?.linkId,
+          imageUrl: imageUrl ?? undefined,
         }),
       });
 
@@ -328,6 +356,34 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
                 </li>
               ))}
             </ul>
+          </Card>
+
+          <Card>
+            <CardHeader title="Image (optional)" />
+            <CardBody className="space-y-3">
+              {imageUrl ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageThumb ?? imageUrl} alt="Your uploaded image" className="w-16 h-16 object-cover border border-neutral-300" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-neutral-900 truncate">{imageName}</div>
+                    <button type="button" onClick={() => setImageUrl(null)} className="text-xs text-neutral-700 underline inline-flex items-center gap-1">
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Button onClick={() => imageInput.current?.click()} disabled={uploadingImage} block>
+                  <ImagePlus className="w-4 h-4" /> {uploadingImage ? 'Uploading...' : 'Upload your own image'}
+                </Button>
+              )}
+              <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImageFile} aria-label="Upload an image" />
+              <p className="text-xs text-neutral-600">
+                {imageUrl
+                  ? 'Your image will be used on every channel. No AI image is created.'
+                  : 'Leave this empty and the app creates an AI image for you. PNG, JPEG or WebP, up to 10 MB.'}
+              </p>
+            </CardBody>
           </Card>
 
           <Button

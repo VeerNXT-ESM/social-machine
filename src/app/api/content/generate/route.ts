@@ -5,7 +5,8 @@ import { createItem, NewPost } from '@/lib/db/items';
 import { getSourceNameForItem, updateLink } from '@/lib/db/sources';
 import { enforceInsightRules } from '@/lib/contentGuard';
 import { getItem } from '@/lib/db/items';
-import { isPlatform, serverError } from '@/lib/db/http';
+import { isOwnMediaUrl } from '@/lib/db/media';
+import { badRequest, isPlatform, serverError } from '@/lib/db/http';
 import { Platform } from '@/types';
 
 // Generating text, an image and (for source articles) rule checks can take a while.
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
       cta,
       additionalInstructions,
       sourceLinkId,
+      imageUrl: ownImageUrl,
     } = body;
 
     const requested: unknown[] = Array.isArray(body.selectedPlatforms)
@@ -33,6 +35,9 @@ export async function POST(req: Request) {
 
     if (!sourceContent && !title) {
       return NextResponse.json({ error: 'Please provide either source content or a title' }, { status: 400 });
+    }
+    if (ownImageUrl !== undefined && ownImageUrl !== null && !isOwnMediaUrl(ownImageUrl)) {
+      return badRequest('The image must be one uploaded through this app.');
     }
     if (selectedPlatforms.length === 0) {
       return NextResponse.json({ error: 'Select at least one channel' }, { status: 400 });
@@ -50,12 +55,16 @@ export async function POST(req: Request) {
       additionalInstructions,
     });
 
-    // One image per content item, shared by all of its platform posts
+    // One image per content item, shared by all of its platform posts.
+    // A person's own uploaded image replaces the AI image (and saves its cost).
     const vd = aiResult.visual_direction;
-    const imageUrl = await generatePostImage(
-      vd?.image_prompt || vd?.concept || `${title || 'VeerNXT'}: ${aiResult.core_message}`,
-      vd?.aspect_ratio || '1:1'
-    );
+    const imageUrl = ownImageUrl
+      ? ownImageUrl
+      : await generatePostImage(
+          vd?.image_prompt || vd?.concept || `${title || 'VeerNXT'}: ${aiResult.core_message}`,
+          vd?.aspect_ratio || '1:1',
+          title || 'VeerNXT post'
+        );
 
     const posts: NewPost[] = [];
     for (const platform of selectedPlatforms) {

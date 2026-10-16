@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { updatePost, PostPatch } from '@/lib/db/items';
+import { setItemMedia, updatePost, PostPatch } from '@/lib/db/items';
+import { isOwnMediaUrl } from '@/lib/db/media';
 import { badRequest, isPlatform, isStatus, notFound, serverError } from '@/lib/db/http';
 
 /** Update the text, status or schedule of one platform post. Returns the whole updated item. */
@@ -25,7 +26,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
       patch.scheduled_at = body.scheduled_at;
     }
+    if ('media_urls' in body) {
+      // One image per post, and only from our own storage (an upload or a library image).
+      const urls = body.media_urls;
+      if (!Array.isArray(urls) || urls.length > 1 || !urls.every(isOwnMediaUrl)) {
+        return badRequest('The image must be one uploaded through this app.');
+      }
+      patch.media_urls = urls;
+    }
     if (Object.keys(patch).length === 0) return badRequest('Nothing to update');
+
+    // "all_channels" applies an image change to every channel of the item (used by "Use on all channels")
+    if (body.all_channels === true && 'media_urls' in patch) {
+      const item = await setItemMedia(id, patch.media_urls ?? []);
+      return item ? NextResponse.json({ item }) : notFound('Item');
+    }
 
     const item = await updatePost(id, platform, patch);
     return item ? NextResponse.json({ item }) : notFound('Post');

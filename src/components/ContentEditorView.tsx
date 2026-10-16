@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ContentItem, Platform, PlatformPost } from '@/types';
 import { PlatformPreviews } from './PlatformPreviews';
+import { PostImageCard } from './PostImageCard';
 import { api } from '@/lib/api';
 import {
   Sparkles,
@@ -348,6 +349,16 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
                 </div>
               </CardBody>
             </Card>
+
+            <PostImageCard
+              key={activePlatform}
+              itemId={item.id}
+              platform={activePlatform}
+              platformName={platformName}
+              imageUrl={currentPost?.media_urls?.[0]}
+              channelCount={selectedPlatforms.length}
+              onUpdated={onUpdateItem}
+            />
 
             <Card>
               <CardHeader

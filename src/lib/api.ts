@@ -1,4 +1,4 @@
-import { ContentItem, Platform, PostStatus } from '@/types';
+import { ContentItem, MediaItem, Platform, PostStatus } from '@/types';
 import type { LinkRow, LinkStatus, ScanSummary, SourceKind, SourceRow } from '@/types/sources';
 
 /** Thin browser client for the app's own API routes. Every call throws an Error with a readable message. */
@@ -125,5 +125,41 @@ export const api = {
 
   async setLinkStatus(id: string, status: LinkStatus): Promise<void> {
     await request(`/api/links/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+  },
+
+  // ---------------------------------------------------------------- images
+
+  async listMedia(): Promise<MediaItem[]> {
+    return (await request<{ media: MediaItem[] }>('/api/media')).media;
+  },
+
+  /** Upload a picture chosen on this computer. Throws a readable error if it is not allowed. */
+  async uploadImage(file: File): Promise<MediaItem> {
+    const form = new FormData();
+    form.append('file', file);
+    // No JSON content type here: the browser sets the multipart boundary itself.
+    const res = await fetch('/api/media', { method: 'POST', body: form });
+    let data: { media?: MediaItem; error?: string } = {};
+    try {
+      data = await res.json();
+    } catch {
+      // non-JSON response
+    }
+    if (!res.ok || !data.media) throw new Error(data.error || `Upload failed (${res.status})`);
+    return data.media;
+  },
+
+  async deleteMedia(id: string): Promise<void> {
+    await request(`/api/media/${id}`, { method: 'DELETE' });
+  },
+
+  /** Set (or clear, with null) the image of one post, or of every channel of the item. */
+  async setPostImage(id: string, platform: Platform, url: string | null, allChannels = false): Promise<ContentItem> {
+    return (
+      await request<{ item: ContentItem }>(`/api/items/${id}/posts/${platform}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ media_urls: url ? [url] : [], all_channels: allChannels }),
+      })
+    ).item;
   },
 };

@@ -112,6 +112,9 @@ export interface MediaItem {
   storage_path: string;
   public_url: string;
   created_at: string;
+  /** Small copy for lists; missing for older images until backfilled. */
+  thumb_url?: string | null;
+  thumb_path?: string | null;
 }
 
 export interface BrandSettings {
