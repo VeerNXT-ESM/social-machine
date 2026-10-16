@@ -89,7 +89,7 @@ const HELP: Record<string, HelpSection> = {
     title: 'The media library',
     intro: 'Every image stored for your posts, in one place: pictures you upload and images the app created for you.',
     items: [
-      { term: 'Upload images', text: 'Press the button, or drag pictures onto the dashed box. You can add several at once. PNG, JPEG and WebP files up to 10 MB are accepted; other kinds of file are refused.' },
+      { term: 'Upload images', text: 'Press the button, or drag pictures onto the dashed box. You can add several at once. PNG, JPEG and WebP files up to 10 MB are accepted; other kinds of file are refused. Every picture is automatically converted to a smaller WebP (at most 2048 pixels wide or tall) so posts load quickly.' },
       { term: 'Each picture', text: 'Shows its name, whether you uploaded it or the app created it, its size and the date. Uploaded pictures can be reused on any post from the editor using "Choose from library".' },
       { term: 'Delete', text: 'Removes a picture permanently after you confirm. A picture that a post still uses cannot be deleted; the page tells you how many posts use it, so change those posts first.' },
     ],

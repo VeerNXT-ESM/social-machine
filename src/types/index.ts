@@ -115,6 +115,8 @@ export interface MediaItem {
   /** Small copy for lists; missing for older images until backfilled. */
   thumb_url?: string | null;
   thumb_path?: string | null;
+  /** Size of the file before it was compressed (only present on a fresh upload response). */
+  original_bytes?: number;
 }
 
 export interface BrandSettings {

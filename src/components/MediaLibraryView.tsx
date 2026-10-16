@@ -44,16 +44,20 @@ export function MediaLibraryView() {
     setNotice(null);
     const failures: string[] = [];
     let done = 0;
+    let before = 0;
+    let after = 0;
     for (const file of list) {
       try {
-        await api.uploadImage(file);
+        const m = await api.uploadImage(file);
         done += 1;
+        before += m.original_bytes ?? file.size;
+        after += m.size_bytes;
       } catch (err) {
         failures.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
       }
     }
     setUploading(false);
-    if (done > 0) setNotice(`Uploaded ${done} image${done === 1 ? '' : 's'}.`);
+    if (done > 0) setNotice(`Uploaded ${done} image${done === 1 ? '' : 's'}, compressed from ${kb(before)} to ${kb(after)} as WebP.`);
     if (failures.length > 0) setError(failures.join(' '));
     setVersion((v) => v + 1);
   };
@@ -126,7 +130,7 @@ export function MediaLibraryView() {
       >
         <UploadCloud className="w-7 h-7 text-neutral-600 mx-auto mb-1.5" />
         <p className="text-sm font-medium text-neutral-800">Drag and drop pictures here</p>
-        <p className="text-xs text-neutral-600 mt-1">PNG, JPEG or WebP, up to 10 MB each</p>
+        <p className="text-xs text-neutral-600 mt-1">PNG, JPEG or WebP, up to 10 MB each. Saved as compressed WebP.</p>
       </div>
 
       {loading ? (

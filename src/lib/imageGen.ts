@@ -46,11 +46,9 @@ export async function generatePostImage(
     const b64 = res.data?.[0]?.b64_json;
     if (!b64) throw new Error('No image data returned');
 
-    // Stored in Supabase Storage (permanent public URL), not on the server's disk.
-    const size = SIZE_BY_RATIO[aspectRatio] ?? '1024x1024';
-    const [width, height] = size.split('x').map(Number);
-    const filename = label ? `${label.replace(/[^\w .()-]/g, '').trim().slice(0, 80)} (AI image).png` : undefined;
-    return await saveImage({ bytes: Buffer.from(b64, 'base64'), mimeType: 'image/png', width, height, filename });
+    // Compressed to WebP and stored in Supabase Storage (permanent public URL), not on the server's disk.
+    const filename = label ? `${label.replace(/[^\w .()-]/g, '').trim().slice(0, 80)} (AI image).webp` : undefined;
+    return await saveImage({ bytes: Buffer.from(b64, 'base64'), folder: 'generated', filename });
   } catch (err) {
     console.error('Image generation failed, using fallback logo:', err);
     return FALLBACK_IMAGE;

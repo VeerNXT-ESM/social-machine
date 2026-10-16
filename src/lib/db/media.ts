@@ -1,16 +1,33 @@
 import 'server-only';
 import { randomUUID } from 'crypto';
-import { imageSize } from 'image-size';
-import { Jimp } from 'jimp';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getWorkspaceUserId } from './workspace';
 import type { MediaItem } from '@/types';
 
 export const MEDIA_BUCKET = 'media';
+/** The largest file a person may upload. What is stored is much smaller (see optimizeImage). */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+// Every stored picture is converted to WebP within these limits.
+const MAX_EDGE = 2048; // longest side in pixels; smaller pictures are never enlarged
+const TARGET_BYTES = 600 * 1024; // quality is lowered step by step until the file is about this size
+const START_QUALITY = 82;
+const MIN_QUALITY = 55;
+const MAX_INPUT_PIXELS = 50_000_000; // refuse "decompression bombs": tiny files that expand to enormous images
 const THUMB_SIZE = 480;
 
 let bucketReady = false;
+
+type Sharp = typeof import('sharp').default;
+let sharpModule: Promise<Sharp> | null = null;
+/**
+ * sharp is a native module. It is loaded at run time (not bundled) because the bundler cannot link
+ * native packages on drives that do not support junction points, such as this project's K: drive.
+ */
+function loadSharp(): Promise<Sharp> {
+  sharpModule ??= import(/* turbopackIgnore: true */ /* webpackIgnore: true */ 'sharp').then((m) => m.default);
+  return sharpModule;
+}
 
 /**
  * Create the public `media` bucket if it does not exist yet. The bucket is public because social
@@ -53,49 +70,76 @@ export function sniffImage(bytes: Buffer): ImageMime | null {
   return null;
 }
 
-/**
- * A small square JPEG copy for lists and pickers. Pure JavaScript on purpose: native image libraries
- * cannot be linked by the dev server on every drive type, and this works the same everywhere.
- * WebP uploads are not supported by this library, so they simply have no thumbnail and lists use the original.
- */
-export async function makeThumbnail(bytes: Buffer): Promise<Buffer> {
-  const image = await Jimp.read(bytes);
-  image.cover({ w: THUMB_SIZE, h: THUMB_SIZE });
-  return Buffer.from(await image.getBuffer('image/jpeg', { quality: 72 }));
+export class UploadError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message);
+  }
 }
 
-export interface SaveImageInput {
+export interface OptimizedImage {
   bytes: Buffer;
-  mimeType?: string;
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Convert any PNG, JPEG or WebP to a compact WebP:
+ *  - the longest side is limited to 2048 px (never enlarged),
+ *  - camera orientation is applied, then all metadata (including GPS location) is dropped,
+ *  - quality starts at 82 and is lowered in steps until the file is around 600 KB.
+ */
+export async function optimizeImage(input: Buffer): Promise<OptimizedImage> {
+  const sharp = await loadSharp();
+  const render = (quality: number) =>
+    sharp(input, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' })
+      .rotate()
+      .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality, effort: 4 })
+      .toBuffer({ resolveWithObject: true });
+
+  try {
+    let quality = START_QUALITY;
+    let out = await render(quality);
+    while (out.data.length > TARGET_BYTES && quality > MIN_QUALITY) {
+      quality -= 9;
+      out = await render(quality);
+    }
+    return { bytes: out.data, width: out.info.width, height: out.info.height };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '';
+    if (/pixel limit/i.test(message)) throw new UploadError('That picture is too large in pixels to process. Please use a smaller one.', 413);
+    throw new UploadError('That file could not be read as an image.');
+  }
+}
+
+/** A small square WebP copy for lists and pickers. */
+async function makeThumbnail(webp: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  return sharp(webp).resize(THUMB_SIZE, THUMB_SIZE, { fit: 'cover' }).webp({ quality: 70 }).toBuffer();
+}
+
+interface StoreInput {
+  image: OptimizedImage;
   /** Folder inside the bucket, for example "generated" or "uploads". */
-  folder?: string;
+  folder: string;
   /** Shown in the media library; defaults to the stored file name. */
   filename?: string;
+  /** Size of the file before compression, reported back to the caller. */
+  originalBytes: number;
 }
 
-/** Upload an image to storage and record it in the `media` table. Returns the stored record. */
-export async function storeImage({
-  bytes,
-  mimeType = 'image/png',
-  width,
-  height,
-  folder = 'generated',
-  filename,
-}: SaveImageInput): Promise<MediaItem> {
+async function storeOptimized({ image, folder, filename, originalBytes }: StoreInput): Promise<MediaItem> {
   await ensureMediaBucket();
   const supabase = createAdminClient();
   const userId = await getWorkspaceUserId();
 
-  const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png';
-  const now = new Date();
   const id = randomUUID();
-  const path = `${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${id}.${ext}`;
+  const now = new Date();
+  const path = `${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${id}.webp`;
 
   const { error: uploadError } = await supabase.storage
     .from(MEDIA_BUCKET)
-    .upload(path, bytes, { contentType: mimeType, cacheControl: '31536000', upsert: false });
+    .upload(path, image.bytes, { contentType: 'image/webp', cacheControl: '31536000', upsert: false });
   if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
 
   const publicUrl = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
@@ -104,10 +148,10 @@ export async function storeImage({
   let thumbPath: string | null = null;
   let thumbUrl: string | null = null;
   try {
-    const candidate = `thumbs/${id}.jpg`;
+    const candidate = `thumbs/${id}.webp`;
     const { error: thumbError } = await supabase.storage
       .from(MEDIA_BUCKET)
-      .upload(candidate, await makeThumbnail(bytes), { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false });
+      .upload(candidate, await makeThumbnail(image.bytes), { contentType: 'image/webp', cacheControl: '31536000', upsert: false });
     if (!thumbError) {
       thumbPath = candidate;
       thumbUrl = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(candidate).data.publicUrl;
@@ -120,12 +164,12 @@ export async function storeImage({
     .from('media')
     .insert({
       user_id: userId,
-      filename: filename ?? path.split('/').pop(),
+      filename: filename ?? `${id}.webp`,
       type: 'image',
-      mime_type: mimeType,
-      size_bytes: bytes.length,
-      width: width ?? null,
-      height: height ?? null,
+      mime_type: 'image/webp',
+      size_bytes: image.bytes.length,
+      width: image.width,
+      height: image.height,
       storage_path: path,
       public_url: publicUrl,
       thumb_url: thumbUrl,
@@ -138,41 +182,37 @@ export async function storeImage({
     await supabase.storage.from(MEDIA_BUCKET).remove([path, ...(thumbPath ? [thumbPath] : [])]);
     throw new Error(`Could not record the image: ${rowError?.message}`);
   }
-  return data as MediaItem;
+  return { ...(data as MediaItem), original_bytes: originalBytes };
 }
 
-/** Upload an image and return only its public URL (used for AI-generated images). */
+export interface SaveImageInput {
+  bytes: Buffer;
+  folder?: string;
+  filename?: string;
+}
+
+/** Compress an image to WebP, store it with a thumbnail, and return the stored record. */
+export async function storeImage({ bytes, folder = 'generated', filename }: SaveImageInput): Promise<MediaItem> {
+  const image = await optimizeImage(bytes);
+  return storeOptimized({ image, folder, filename, originalBytes: bytes.length });
+}
+
+/** Same as storeImage but returns only the public address (used for AI-generated images). */
 export async function saveImage(input: SaveImageInput): Promise<string> {
   return (await storeImage(input)).public_url;
 }
 
-export class UploadError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
-
-/** Validate a file chosen by a person and store it. Throws UploadError with a readable message. */
+/** Validate a file chosen by a person, compress it to WebP and store it. Throws UploadError with a readable message. */
 export async function saveUpload(file: { bytes: Buffer; name: string }): Promise<MediaItem> {
   if (file.bytes.length === 0) throw new UploadError('That file is empty.');
   if (file.bytes.length > MAX_UPLOAD_BYTES) throw new UploadError('That image is larger than 10 MB. Please use a smaller file.', 413);
+  if (!sniffImage(file.bytes)) throw new UploadError('Only PNG, JPEG or WebP images can be uploaded.', 415);
 
-  const mime = sniffImage(file.bytes);
-  if (!mime) throw new UploadError('Only PNG, JPEG or WebP images can be uploaded.', 415);
+  const image = await optimizeImage(file.bytes);
 
-  let width: number | undefined;
-  let height: number | undefined;
-  try {
-    const dims = imageSize(file.bytes);
-    width = dims.width;
-    height = dims.height;
-  } catch {
-    throw new UploadError('That file could not be read as an image.');
-  }
-
-  // Display name only: strip any path and odd characters. The stored file name is always a random id.
-  const safeName = file.name.split(/[\\/]/).pop()!.replace(/[^\w .()-]/g, '_').slice(0, 120) || 'upload';
-  return storeImage({ bytes: file.bytes, mimeType: mime, width, height, folder: 'uploads', filename: safeName });
+  // Display name only: strip any path and odd characters, and show the real format now stored.
+  const base = file.name.split(/[\\/]/).pop()!.replace(/\.[^.]*$/, '').replace(/[^\w .()-]/g, '_').slice(0, 110) || 'upload';
+  return storeOptimized({ image, folder: 'uploads', filename: `${base}.webp`, originalBytes: file.bytes.length });
 }
 
 export async function listMedia(limit = 100): Promise<MediaItem[]> {
@@ -202,7 +242,7 @@ export async function deleteMedia(id: string): Promise<{ deleted: boolean; usedB
   if ((used ?? []).length > 0) return { deleted: false, usedBy: used!.length };
 
   await supabase.storage.from(MEDIA_BUCKET).remove([row.storage_path, ...(row.thumb_path ? [row.thumb_path] : [])]);
-  const { error: delError } = await supabase.from('media').delete().eq('id', id);
+  const { error: delError } = await supabase.from('media').delete().eq('id', row.id);
   if (delError) throw new Error(delError.message);
   return { deleted: true, usedBy: 0 };
 }
