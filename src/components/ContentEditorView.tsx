@@ -205,6 +205,9 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
     }, isLiveMode() ? `Published to ${platformName} through Buffer.` : `Published to ${platformName} (sandbox).`);
   };
 
+  const handleCancelSchedule = () =>
+    run(() => api.cancelSchedule(item.id, activePlatform), `Schedule cancelled for ${platformName}.`);
+
   const handleConfirmSchedule = () => {
     setScheduleModalOpen(false);
     const iso = new Date(scheduledDate).toISOString();
@@ -394,6 +397,11 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
                 <Button block disabled={busy || currentPost?.status === 'PUBLISHED'} onClick={() => setScheduleModalOpen(true)}>
                   <Clock className="w-4 h-4" /> Schedule post
                 </Button>
+                {currentPost?.status === 'SCHEDULED' && (
+                  <Button block disabled={busy} onClick={handleCancelSchedule}>
+                    <Clock className="w-4 h-4" /> Cancel schedule
+                  </Button>
+                )}
                 <Button variant="primary" block disabled={busy || currentPost?.status === 'PUBLISHED'} onClick={handlePublishNow}>
                   <Send className="w-4 h-4" /> Publish now{isLiveMode() ? '' : ' (sandbox)'}
                 </Button>

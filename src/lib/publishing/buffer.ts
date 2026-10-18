@@ -78,6 +78,52 @@ type CreateResult = {
   createPost: { post?: { id: string; status: string; dueAt?: string; externalLink?: string }; message?: string };
 };
 
+/** Buffer post ids are 24 hex characters; sandbox ids start with "mock-". */
+export const isBufferId = (id: unknown): id is string => typeof id === 'string' && /^[0-9a-f]{24}$/.test(id);
+
+export interface BufferPostState {
+  /** What Buffer says now. "gone" means the post no longer exists in Buffer (deleted there). */
+  state: 'scheduled' | 'sending' | 'published' | 'failed' | 'gone';
+  externalUrl?: string;
+  sentAt?: string;
+  error?: string;
+}
+
+/** Ask Buffer what happened to a post we sent. */
+export async function getBufferPostState(id: string): Promise<BufferPostState> {
+  try {
+    const data = await gql<{ post: { status: string; sentAt?: string; externalLink?: string; error?: { message?: string } | null } }>(
+      'query($id: PostId!) { post(input: { id: $id }) { status sentAt externalLink error { message } } }',
+      { id }
+    );
+    const p = data.post;
+    if (p.status === 'sent') return { state: 'published', externalUrl: p.externalLink || undefined, sentAt: p.sentAt };
+    if (p.status === 'error') return { state: 'failed', error: p.error?.message || 'Buffer could not publish this post.' };
+    if (p.status === 'sending') return { state: 'sending' };
+    if (p.status === 'scheduled') return { state: 'scheduled' };
+    return { state: 'gone' }; // draft or needs approval: no longer a scheduled post
+  } catch (err) {
+    if (err instanceof BufferError && /not found/i.test(err.message)) return { state: 'gone' };
+    throw err;
+  }
+}
+
+/** Remove a scheduled post from Buffer. A post already removed counts as success. */
+export async function deleteBufferPost(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const data = await gql<{ deletePost: { message?: string } | null }>(
+      'mutation($id: PostId!) { deletePost(input: { id: $id }) { ... on VoidMutationError { message } } }',
+      { id }
+    );
+    const msg = data.deletePost?.message;
+    if (msg && !/not found/i.test(msg)) return { ok: false, error: `Buffer would not cancel the post: ${msg}` };
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof BufferError && /not found/i.test(err.message)) return { ok: true };
+    return { ok: false, error: err instanceof BufferError ? err.message : 'Could not reach Buffer. Please try again.' };
+  }
+}
+
 export class BufferProvider implements PublishingProvider {
   name = 'Buffer API';
 

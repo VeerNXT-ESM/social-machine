@@ -75,6 +75,21 @@ export const api = {
     return data.item;
   },
 
+  /** Cancel a scheduled post (also removes it from Buffer). */
+  async cancelSchedule(id: string, platform: Platform): Promise<ContentItem> {
+    const data = await request<{ item: ContentItem | null }>('/api/publish', {
+      method: 'POST',
+      body: JSON.stringify({ contentItemId: id, platform, action: 'cancel' }),
+    });
+    if (!data.item) throw new Error('Cancelled, but the updated post could not be loaded');
+    return data.item;
+  },
+
+  /** Ask Buffer what happened to scheduled posts; returns how many changed. */
+  async syncPublishing(): Promise<{ checked: number; changed: number }> {
+    return request('/api/publish/sync', { method: 'POST' });
+  },
+
   /** Schedule one approved post. */
   async schedule(id: string, platform: Platform, scheduledAtIso: string): Promise<ContentItem> {
     const data = await request<{ item: ContentItem | null }>('/api/publish', {

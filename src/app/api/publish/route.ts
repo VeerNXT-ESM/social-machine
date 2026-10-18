@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPublishingProvider } from '@/lib/publishing';
 import { getPost, updatePost } from '@/lib/db/items';
+import { deleteBufferPost, isBufferId } from '@/lib/publishing/buffer';
 import { badRequest, isPlatform, notFound, serverError } from '@/lib/db/http';
 
 /**
@@ -18,6 +19,17 @@ export async function POST(req: Request) {
 
     const post = await getPost(contentItemId, platform);
     if (!post) return notFound('Post');
+
+    // Cancel a scheduled post: remove it from Buffer (if it was sent there) and return it to Approved
+    if (action === 'cancel') {
+      if (post.status !== 'SCHEDULED') return badRequest('Only a scheduled post can be cancelled.');
+      if (isBufferId(post.external_post_id)) {
+        const removed = await deleteBufferPost(post.external_post_id);
+        if (!removed.ok) return NextResponse.json({ error: removed.error }, { status: 502 });
+      }
+      const item = await updatePost(contentItemId, platform, { status: 'APPROVED', scheduled_at: null, external_post_id: null } as never);
+      return NextResponse.json({ success: true, status: 'APPROVED', item });
+    }
 
     // Only approved posts may be scheduled or published
     if (post.status !== 'APPROVED' && post.status !== 'SCHEDULED' && post.status !== 'PUBLISHED') {

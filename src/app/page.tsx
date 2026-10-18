@@ -49,6 +49,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Once on opening the app, ask Buffer whether scheduled posts have gone out, and refresh if any changed.
+    api.syncPublishing().then((r) => r.changed > 0 && void loadItems()).catch(() => undefined);
+  }, [loadItems]);
+
+  useEffect(() => {
     // Initial load from the database. `active` stops a late response from updating an unmounted page.
     let active = true;
     api
