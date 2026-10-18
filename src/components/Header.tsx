@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Shield,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -43,6 +44,18 @@ export function Header({
   setMockMode,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  // Sign-in only exists on the online site; locally this stays null and no button is shown.
+  const [account, setAccount] = React.useState<{ required: boolean; email: string | null } | null>(null);
+  React.useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then(setAccount)
+      .catch(() => setAccount(null));
+  }, []);
+  const signOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    window.location.href = '/login';
+  };
 
   const navItems: { id: NavTab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -101,6 +114,12 @@ export function Header({
             {mockMode ? 'Switch to live' : 'Switch to sandbox'}
           </button>
         </div>
+
+        {account?.required && (
+          <Button size="sm" variant="ghost" onClick={signOut} title={account.email ? `Signed in as ${account.email}` : 'Sign out'}>
+            <LogOut className="w-3.5 h-3.5" /> Sign out
+          </Button>
+        )}
 
         <Button variant="primary" size="sm" onClick={() => setActiveTab('create')}>
           <PlusCircle className="w-3.5 h-3.5" /> Create
