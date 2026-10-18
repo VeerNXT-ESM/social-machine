@@ -26,6 +26,13 @@ export interface PostPatch {
   scheduled_at?: string | null;
 }
 
+/** 'mock' rehearses only; 'buffer' really publishes through Buffer. Follows the Sandbox / Live switch in the header. */
+let publishMode: 'mock' | 'buffer' = 'mock';
+export function setPublishMode(mode: 'mock' | 'buffer') {
+  publishMode = mode;
+}
+export const isLiveMode = () => publishMode === 'buffer';
+
 export const api = {
   async listItems(): Promise<ContentItem[]> {
     return (await request<{ items: ContentItem[] }>('/api/items')).items;
@@ -62,7 +69,7 @@ export const api = {
   async publish(id: string, platform: Platform): Promise<ContentItem> {
     const data = await request<{ item: ContentItem | null }>('/api/publish', {
       method: 'POST',
-      body: JSON.stringify({ contentItemId: id, platform, action: 'publish_now', mode: 'mock' }),
+      body: JSON.stringify({ contentItemId: id, platform, action: 'publish_now', mode: publishMode }),
     });
     if (!data.item) throw new Error('Published, but the updated post could not be loaded');
     return data.item;
@@ -72,7 +79,7 @@ export const api = {
   async schedule(id: string, platform: Platform, scheduledAtIso: string): Promise<ContentItem> {
     const data = await request<{ item: ContentItem | null }>('/api/publish', {
       method: 'POST',
-      body: JSON.stringify({ contentItemId: id, platform, action: 'schedule', scheduledAt: scheduledAtIso, mode: 'mock' }),
+      body: JSON.stringify({ contentItemId: id, platform, action: 'schedule', scheduledAt: scheduledAtIso, mode: publishMode }),
     });
     if (!data.item) throw new Error('Scheduled, but the updated post could not be loaded');
     return data.item;

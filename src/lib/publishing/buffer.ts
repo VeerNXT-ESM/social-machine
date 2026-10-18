@@ -1,27 +1,130 @@
-import { PlatformPost } from '@/types';
+import 'server-only';
+import { PlatformPost, Platform } from '@/types';
 import { PublishingProvider, PublishResult } from './types';
+import { makePublishJpeg } from '@/lib/db/media';
+
+const ENDPOINT = 'https://api.buffer.com';
+
+/** Buffer service name for each of our channels. Facebook and Instagram are not connected yet. */
+const SERVICE: Partial<Record<Platform, string>> = { linkedin: 'linkedin', x: 'twitter' };
+
+const X_LIMIT = 280;
+
+interface BufferChannel {
+  id: string;
+  name: string;
+  service: string;
+  isDisconnected: boolean;
+  isLocked: boolean;
+}
+
+class BufferError extends Error {}
+
+async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const key = process.env.BUFFER_API_KEY;
+  if (!key) throw new BufferError('The Buffer API key is not set. Add BUFFER_API_KEY to the server settings.');
+
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (res.status === 429) {
+    const wait = res.headers.get('Retry-After');
+    throw new BufferError(`Buffer is limiting requests. Please try again${wait ? ` in ${wait} seconds` : ' shortly'}.`);
+  }
+  if (res.status === 401 || res.status === 403) throw new BufferError('Buffer did not accept the API key. Check BUFFER_API_KEY.');
+  const json = (await res.json().catch(() => null)) as { data?: T; errors?: { message: string }[] } | null;
+  if (!json) throw new BufferError(`Buffer returned an unexpected response (${res.status}).`);
+  if (json.errors?.length) throw new BufferError(`Buffer: ${json.errors[0].message}`);
+  return json.data as T;
+}
+
+let cached: { at: number; channels: BufferChannel[] } | null = null;
+
+/** The channels connected in Buffer (cached for a minute so a burst of posts makes one lookup). */
+async function getChannels(): Promise<BufferChannel[]> {
+  if (cached && Date.now() - cached.at < 60_000) return cached.channels;
+  const orgs = await gql<{ account: { organizations: { id: string }[] } }>('query { account { organizations { id } } }');
+  const channels: BufferChannel[] = [];
+  for (const org of orgs.account.organizations) {
+    const data = await gql<{ channels: BufferChannel[] }>(
+      'query($org: OrganizationId!) { channels(input: { organizationId: $org }) { id name service isDisconnected isLocked } }',
+      { org: org.id }
+    );
+    channels.push(...data.channels);
+  }
+  cached = { at: Date.now(), channels };
+  return channels;
+}
+
+/** The text exactly as the editor's copy button composes it: post, call to action, then hashtags. */
+export function composePostText(post: PlatformPost): string {
+  return [post.text?.trim(), post.cta?.trim(), post.hashtags?.length ? post.hashtags.join(' ') : '']
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+const CREATE_POST = `
+mutation($input: CreatePostInput!) {
+  createPost(input: $input) {
+    ... on PostActionSuccess { post { id status dueAt externalLink } }
+    ... on MutationError { message }
+  }
+}`;
+
+type CreateResult = {
+  createPost: { post?: { id: string; status: string; dueAt?: string; externalLink?: string }; message?: string };
+};
 
 export class BufferProvider implements PublishingProvider {
   name = 'Buffer API';
 
-  async publishPost(post: PlatformPost): Promise<PublishResult> {
-    const token = process.env.BUFFER_ACCESS_TOKEN;
-    if (!token) {
-      return {
-        success: false,
-        error: 'Buffer Access Token not configured. Please switch provider to Mock or Manual.',
+  private async send(post: PlatformPost, when: string | null): Promise<PublishResult> {
+    try {
+      const service = SERVICE[post.platform];
+      if (!service) return { success: false, error: `${post.platform} is not connected to Buffer yet. Only LinkedIn and X are live.` };
+
+      const text = composePostText(post);
+      if (!text) return { success: false, error: 'The post has no text.' };
+      if (post.platform === 'x' && text.length > X_LIMIT) {
+        return { success: false, error: `This post is ${text.length} characters; X allows ${X_LIMIT}. Shorten it first.` };
+      }
+
+      const channel = (await getChannels()).find((c) => c.service === service && !c.isDisconnected && !c.isLocked);
+      if (!channel) return { success: false, error: `No connected ${post.platform === 'x' ? 'X' : 'LinkedIn'} channel was found in Buffer.` };
+
+      const input: Record<string, unknown> = {
+        channelId: channel.id,
+        text,
+        schedulingType: 'automatic',
+        mode: when ? 'customScheduled' : 'shareNow',
+        needsApproval: false,
+        source: 'veernxt-social',
+        assets: [],
       };
+      if (when) input.dueAt = new Date(when).toISOString();
+
+      // Pictures are sent as JPEG: the most widely accepted format across LinkedIn and X.
+      const imageUrl = post.media_urls?.[0];
+      if (imageUrl) input.assets = [{ image: { url: await makePublishJpeg(imageUrl) } }];
+
+      const data = await gql<CreateResult>(CREATE_POST, { input });
+      const result = data.createPost;
+      if (!result?.post) return { success: false, error: `Buffer refused the post: ${result?.message ?? 'unknown reason'}` };
+      return { success: true, external_id: result.post.id, external_url: result.post.externalLink || undefined };
+    } catch (err) {
+      console.error('Buffer publish failed:', err);
+      return { success: false, error: err instanceof BufferError ? err.message : 'Could not reach Buffer. Please try again.' };
     }
-    return {
-      success: true,
-      external_id: `buffer-${Date.now()}`,
-    };
   }
 
-  async schedulePost(post: PlatformPost, scheduledAt: string): Promise<PublishResult> {
-    return {
-      success: true,
-      external_id: `buffer-sched-${Date.now()}`,
-    };
+  publishPost(post: PlatformPost): Promise<PublishResult> {
+    return this.send(post, null);
+  }
+
+  schedulePost(post: PlatformPost, scheduledAt: string): Promise<PublishResult> {
+    return this.send(post, scheduledAt);
   }
 }

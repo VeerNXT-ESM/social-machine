@@ -116,7 +116,7 @@ const HELP: Record<string, HelpSection> = {
     title: 'Settings',
     intro: 'Controls how the app behaves and how posts should sound.',
     items: [
-      { term: 'Publishing mode', text: 'Sandbox runs everything as a rehearsal. Manual publishing means you copy each post and post it yourself. The Buffer option is for a future connection and does not work yet.' },
+      { term: 'Publishing mode', text: 'Sandbox runs everything as a rehearsal. Manual publishing means you copy each post and post it yourself. The Buffer option really publishes to LinkedIn and X (the same as switching to Live at the top). Facebook and Instagram are not connected yet.' },
       { term: 'Brand voice', text: 'The brand name, who you are speaking to, and the words to prefer. These guide the writing.' },
       { term: 'Prohibited words', text: 'Words that must never appear in posts. "Agniveer" is on this list. The app checks generated posts against it.' },
       { term: 'Save settings', text: 'Press it after any change. These settings are kept in this browser on this computer, so they will not follow you to another computer yet.' },

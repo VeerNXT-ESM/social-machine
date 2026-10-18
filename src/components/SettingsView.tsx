@@ -18,7 +18,7 @@ type Mode = BrandSettings['publishing_mode'];
 const MODES: { id: Mode; title: string; description: string }[] = [
   { id: 'mock', title: 'Sandbox (default)', description: 'Run the full workflow without connecting real social accounts.' },
   { id: 'manual', title: 'Manual publishing', description: 'Copy text, download media and open the native apps.' },
-  { id: 'buffer', title: 'Buffer or native API', description: 'Publish through Buffer or the Meta Graph API credentials.' },
+  { id: 'buffer', title: 'Buffer or native API', description: 'Really publish to LinkedIn and X through Buffer. Facebook and Instagram are not connected yet.' },
 ];
 
 const splitList = (value: string) => value.split(',').map((s) => s.trim());
@@ -35,8 +35,8 @@ export function SettingsView({ setMockMode, onOpenTestCampaignModal }: SettingsV
   };
 
   const chooseMode = (id: Mode) => {
-    if (id === 'mock') setMockMode(true);
-    if (id === 'manual') setMockMode(false);
+    // Only the Buffer option publishes for real; sandbox and manual never send anything.
+    setMockMode(id !== 'buffer');
     setSettings({ ...settings, publishing_mode: id });
   };
 

@@ -215,6 +215,27 @@ export async function saveUpload(file: { bytes: Buffer; name: string }): Promise
   return storeOptimized({ image, folder: 'uploads', filename: `${base}.webp`, originalBytes: file.bytes.length });
 }
 
+/**
+ * A JPEG copy of one of our own stored pictures, hosted publicly for a publishing service to fetch.
+ * Done at publish time because LinkedIn and Instagram do not reliably accept WebP.
+ */
+export async function makePublishJpeg(url: string): Promise<string> {
+  if (!isOwnMediaUrl(url)) throw new Error('The post image must be one stored by this app.');
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error('The post image could not be read from storage.');
+  const sharp = await loadSharp();
+  const jpeg = await sharp(Buffer.from(await res.arrayBuffer()), { limitInputPixels: MAX_INPUT_PIXELS })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer();
+
+  const supabase = createAdminClient();
+  const path = `publish/${randomUUID()}.jpg`;
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, jpeg, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false });
+  if (error) throw new Error(`Could not prepare the image for publishing: ${error.message}`);
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 export async function listMedia(limit = 100): Promise<MediaItem[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

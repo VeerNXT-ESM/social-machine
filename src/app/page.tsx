@@ -16,7 +16,7 @@ import { AnalyticsView } from '@/components/AnalyticsView';
 import { SettingsView } from '@/components/SettingsView';
 import { TestCampaignModal } from '@/components/TestCampaignModal';
 import { ManualPublishModal } from '@/components/ManualPublishModal';
-import { api } from '@/lib/api';
+import { api, setPublishMode } from '@/lib/api';
 import { ContentItem, PlatformPost } from '@/types';
 import type { ContentPrefill } from '@/types/sources';
 
@@ -25,6 +25,7 @@ export default function Home() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [mockMode, setMockMode] = useState<boolean>(true);
+  useEffect(() => setPublishMode(mockMode ? 'mock' : 'buffer'), [mockMode]);
 
   // Modals
   const [testModalOpen, setTestModalOpen] = useState<boolean>(false);

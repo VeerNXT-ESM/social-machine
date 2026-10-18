@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ContentItem, Platform, PlatformPost } from '@/types';
 import { PlatformPreviews } from './PlatformPreviews';
 import { PostImageCard } from './PostImageCard';
-import { api } from '@/lib/api';
+import { api, isLiveMode } from '@/lib/api';
 import {
   Sparkles,
   CheckCircle2,
@@ -197,11 +197,13 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
     }
   };
 
-  const handlePublishNow = () =>
-    run(async () => {
+  const handlePublishNow = () => {
+    if (isLiveMode() && !window.confirm(`This will post to the real ${platformName} account now. Continue?`)) return;
+    return run(async () => {
       await ensureApproved();
       return api.publish(item.id, activePlatform);
-    }, `Published to ${platformName} (sandbox).`);
+    }, isLiveMode() ? `Published to ${platformName} through Buffer.` : `Published to ${platformName} (sandbox).`);
+  };
 
   const handleConfirmSchedule = () => {
     setScheduleModalOpen(false);
@@ -393,7 +395,7 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
                   <Clock className="w-4 h-4" /> Schedule post
                 </Button>
                 <Button variant="primary" block disabled={busy || currentPost?.status === 'PUBLISHED'} onClick={handlePublishNow}>
-                  <Send className="w-4 h-4" /> Publish now (sandbox)
+                  <Send className="w-4 h-4" /> Publish now{isLiveMode() ? '' : ' (sandbox)'}
                 </Button>
               </div>
 
