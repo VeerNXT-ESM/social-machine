@@ -255,3 +255,48 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions = {}):
 
   return rawFetch(rawUrl, options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.maxBytes ?? DEFAULT_MAX_BYTES, options.accept);
 }
+
+/**
+ * Download one picture from a public address (redirects re-checked, size and time limited).
+ * Used when a person chooses to reuse an article's picture. Returns the raw bytes.
+ */
+export async function fetchImageBytes(startUrl: string, maxBytes = 10 * 1024 * 1024, timeoutMs = 15_000): Promise<Buffer> {
+  let current = startUrl;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const url = await assertPublicUrl(current);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        redirect: 'manual',
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: { 'User-Agent': USER_AGENT, Accept: 'image/png,image/jpeg,image/webp,image/*;q=0.8' },
+      });
+      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+        current = new URL(res.headers.get('location')!, url).toString();
+        continue;
+      }
+      if (res.status !== 200) throw new Error('The picture could not be downloaded.');
+      if (!/^image\//i.test(res.headers.get('content-type') ?? '')) throw new Error('That address is not a picture.');
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('The picture could not be downloaded.');
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.length;
+        if (total > maxBytes) {
+          await reader.cancel();
+          throw new Error('The picture is larger than 10 MB.');
+        }
+        chunks.push(value);
+      }
+      return Buffer.concat(chunks);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error('Too many redirects.');
+}

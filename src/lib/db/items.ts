@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getWorkspaceUserId } from './workspace';
 import { ContentItem, Platform, PlatformPost, PostStatus } from '@/types';
+import { withSourceLink } from '@/lib/sourceLink';
 
 const ITEM_SELECT = '*, campaigns(title), platform_posts(*)';
 
@@ -222,4 +223,22 @@ export async function deleteItem(itemId: string): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase.from('content_items').delete().eq('id', itemId);
   if (error) throw new Error(error.message);
+}
+
+/** Make sure every post of an item ends with the article's address. Returns the updated item. */
+export async function addSourceLink(itemId: string, url: string): Promise<ContentItem | null> {
+  const item = await getItem(itemId);
+  if (!item) return null;
+  const supabase = createAdminClient();
+  for (const [platform, post] of Object.entries(item.posts ?? {}) as [Platform, PlatformPost][]) {
+    const text = withSourceLink(platform, post.text ?? '', url);
+    if (text === post.text) continue;
+    const { error } = await supabase
+      .from('platform_posts')
+      .update({ text, updated_at: new Date().toISOString() })
+      .eq('content_item_id', itemId)
+      .eq('platform', platform);
+    if (error) throw new Error(error.message);
+  }
+  return getItem(itemId);
 }

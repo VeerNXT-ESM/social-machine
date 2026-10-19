@@ -46,7 +46,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
   const [websiteUrl, setWebsiteUrl] = useState(prefill?.url ?? '');
   const [campaign, setCampaign] = useState(prefill ? 'Industry insights' : 'VeerNXT Launch');
   const [contentType, setContentType] = useState<ContentType>(prefill ? 'Thought Leadership' : 'Announcement');
-  const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.com');
+  const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.in');
   const [additionalInstructions, setAdditionalInstructions] = useState(
     prefill ? insightInstructions(prefill.sourceName) : ''
   );
@@ -63,6 +63,8 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
   const [imageName, setImageName] = useState('');
   const [imageThumb, setImageThumb] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // The picture the article itself uses, offered after the page is read
+  const [articleImage, setArticleImage] = useState<string | null>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const [scrapingUrl, setScrapingUrl] = useState(Boolean(prefill));
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -109,8 +111,8 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
     );
     setCampaign('VeerNXT Launch');
     setContentType('Announcement');
-    setCta('Visit https://veernxt.com to explore opportunities.');
-    setWebsiteUrl('https://veernxt.com');
+    setCta('Visit https://veernxt.in to explore opportunities.');
+    setWebsiteUrl('https://veernxt.in');
   };
 
   // URL Scrape Handler
@@ -131,6 +133,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
         setErrorMsg(data.error || "We couldn't read this page. Paste the article text instead.");
       } else {
         if (data.title && !title) setTitle(data.title);
+        setArticleImage(typeof data.imageUrl === 'string' ? data.imageUrl : null);
         if (data.extractedText) {
           setSourceContent(data.extractedText);
           setErrorMsg(null);
@@ -140,6 +143,22 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
       setErrorMsg("We couldn't read this page. Paste the article text instead.");
     } finally {
       setScrapingUrl(false);
+    }
+  };
+
+  const useArticleImage = async () => {
+    if (!articleImage) return;
+    setUploadingImage(true);
+    setErrorMsg(null);
+    try {
+      const media = await api.importImage(articleImage);
+      setImageUrl(media.public_url);
+      setImageName(media.filename);
+      setImageThumb(media.thumb_url ?? media.public_url);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not use the article picture.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -275,7 +294,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
                       type="url"
                       value={websiteUrl}
                       onChange={(e) => setWebsiteUrl(e.target.value)}
-                      placeholder="https://veernxt.com/news/career-launch"
+                      placeholder="https://veernxt.in/news/career-launch"
                       className="pl-9"
                     />
                   </div>
@@ -323,7 +342,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
                   type="text"
                   value={cta}
                   onChange={(e) => setCta(e.target.value)}
-                  placeholder="e.g. Visit https://veernxt.com to learn more."
+                  placeholder="e.g. Visit https://veernxt.in to learn more."
                 />
               </Field>
               <Field label="Additional instructions (optional)">
@@ -376,6 +395,19 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
                 <Button onClick={() => imageInput.current?.click()} disabled={uploadingImage} block>
                   <ImagePlus className="w-4 h-4" /> {uploadingImage ? 'Uploading...' : 'Upload your own image'}
                 </Button>
+              )}
+              {!imageUrl && articleImage && (
+                <div className="border border-neutral-300 p-3 flex gap-3 items-start">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={articleImage} alt="Picture from the article" className="w-20 h-20 object-cover border border-neutral-300 bg-neutral-100 shrink-0" referrerPolicy="no-referrer" />
+                  <div className="min-w-0 space-y-2">
+                    <p className="text-sm text-neutral-900">This article has its own picture.</p>
+                    <Button size="sm" onClick={useArticleImage} disabled={uploadingImage}>
+                      <ImagePlus className="w-3.5 h-3.5" /> {uploadingImage ? 'Saving...' : 'Use the article picture'}
+                    </Button>
+                    <p className="text-xs text-neutral-600">News photos are usually copyrighted. Use it only if you have the right to, or credit the source in your post.</p>
+                  </div>
+                </div>
               )}
               <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImageFile} aria-label="Upload an image" />
               <p className="text-xs text-neutral-600">

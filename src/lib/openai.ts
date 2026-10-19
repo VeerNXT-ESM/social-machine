@@ -126,7 +126,7 @@ export function getFallbackGeneratedContent(params: {
   selectedPlatforms: Platform[];
 }): GeneratedPostsSchema {
   const title = params.title || 'VeerNXT Career Pathways';
-  const ctaText = params.cta || 'Discover career transition opportunities at https://veernxt.com';
+  const ctaText = params.cta || 'Discover career transition opportunities at https://veernxt.in';
   const cleanSource = params.sourceContent || title;
   const linkText = params.sourceUrl ? `\n\nRead full source: ${params.sourceUrl}` : '';
 
@@ -141,7 +141,7 @@ export function getFallbackGeneratedContent(params: {
         cta: ctaText
       },
       x: {
-        text: `Bridging military excellence with civilian careers. 🇮🇳\n\n${cleanSource.substring(0, 180)}...\n\nEx-Service Men (ESM) bring unmatched discipline & operational execution to top corporate teams.\n\nLearn how VeerNXT makes transition seamless 👇\nhttps://veernxt.com`,
+        text: `Bridging military excellence with civilian careers. 🇮🇳\n\n${cleanSource.substring(0, 180)}...\n\nEx-Service Men (ESM) bring unmatched discipline & operational execution to top corporate teams.\n\nLearn how VeerNXT makes transition seamless 👇\nhttps://veernxt.in`,
         hashtags: ['#VeerNXT', '#ExServiceMen', '#Careers'],
         cta: ctaText
       },
@@ -239,12 +239,12 @@ function getFallbackRefinedPost(params: {
   } else if (params.action === 'conversational') {
     newText = `Here is something important for our community:\n\n${params.currentText}`;
   } else if (params.action === 'cta') {
-    newText = `${params.currentText}\n\n 👉 Take the next step in your career transition: Visit https://veernxt.com today.`;
+    newText = `${params.currentText}\n\n 👉 Take the next step in your career transition: Visit https://veernxt.in today.`;
   }
 
   return {
     text: newText,
     hashtags: ['#VeerNXT', '#ExServiceMen', '#CareerTransition'],
-    cta: 'Visit https://veernxt.com to learn more.',
+    cta: 'Visit https://veernxt.in to learn more.',
   };
 }

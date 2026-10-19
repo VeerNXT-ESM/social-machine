@@ -349,7 +349,7 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
                   </div>
                   <div className="bg-neutral-50 p-3 border border-neutral-200 space-y-1">
                     <div className="text-xs font-medium text-neutral-600">Call to action</div>
-                    <div className="text-sm text-neutral-800">{currentPost?.cta || 'Visit https://veernxt.com'}</div>
+                    <div className="text-sm text-neutral-800">{currentPost?.cta || 'Visit https://veernxt.in'}</div>
                   </div>
                 </div>
               </CardBody>

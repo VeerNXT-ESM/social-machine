@@ -155,6 +155,18 @@ export const api = {
     return (await request<{ media: MediaItem[] }>('/api/media')).media;
   },
 
+  /** Save a picture from a web address (for example an article's own picture) as WebP in the library. */
+  async importImage(url: string): Promise<MediaItem> {
+    const res = await fetch('/api/media/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data: { media?: MediaItem; error?: string } = await res.json().catch(() => ({}));
+    if (!res.ok || !data.media) throw new Error(data.error || 'The picture could not be saved.');
+    return data.media;
+  },
+
   /** Upload a picture chosen on this computer. Throws a readable error if it is not allowed. */
   async uploadImage(file: File): Promise<MediaItem> {
     const form = new FormData();

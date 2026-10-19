@@ -2,6 +2,7 @@ import 'server-only';
 import { PlatformPost, Platform } from '@/types';
 import { PublishingProvider, PublishResult } from './types';
 import { makePublishJpeg } from '@/lib/db/media';
+import { xLength } from '@/lib/xText';
 
 const ENDPOINT = 'https://api.buffer.com';
 
@@ -134,8 +135,8 @@ export class BufferProvider implements PublishingProvider {
 
       const text = composePostText(post);
       if (!text) return { success: false, error: 'The post has no text.' };
-      if (post.platform === 'x' && text.length > X_LIMIT) {
-        return { success: false, error: `This post is ${text.length} characters; X allows ${X_LIMIT}. Shorten it first.` };
+      if (post.platform === 'x' && xLength(text) > X_LIMIT) {
+        return { success: false, error: `This post is ${xLength(text)} characters; X allows ${X_LIMIT}. Shorten it first.` };
       }
 
       const channel = (await getChannels()).find((c) => c.service === service && !c.isDisconnected && !c.isLocked);

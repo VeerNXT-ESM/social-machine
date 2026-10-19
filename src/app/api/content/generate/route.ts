@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { addSourceLink } from '@/lib/db/items';
 import { generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
 import { createItem, NewPost } from '@/lib/db/items';
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
         provider: 'mock',
         text: single.text || single.caption || '',
         hashtags: single.hashtags || [],
-        cta: single.cta || cta || 'Learn more at https://veernxt.com',
+        cta: single.cta || cta || 'Learn more at https://veernxt.in',
         status: 'REVIEW',
         media_urls: [imageUrl],
       });
@@ -109,6 +110,16 @@ export async function POST(req: Request) {
         }
       } catch (err) {
         console.error('Source link handling failed (the content itself is saved):', err);
+      }
+    }
+
+    // The article's own address goes at the end of each post (after any rewriting, so it cannot be lost)
+    if (typeof sourceUrl === 'string' && /^https?:\/\//.test(sourceUrl)) {
+      try {
+        const linked = await addSourceLink(finalItem.id, sourceUrl);
+        if (linked) finalItem = linked;
+      } catch (err) {
+        console.error('Adding the article link failed (the content itself is saved):', err);
       }
     }
 

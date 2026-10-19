@@ -1,3 +1,4 @@
+import { xLength } from './xText';
 import type { Platform } from '@/types';
 
 /**
@@ -71,7 +72,7 @@ export function checkInsightPost(args: {
   if (platform === 'x') {
     // Count only hashtags that are not already inside the text
     const extra = hashtags.filter((h) => !text.includes(h));
-    const total = text.length + (extra.length ? extra.join(' ').length + 1 : 0);
+    const total = xLength(text) + (extra.length ? extra.join(' ').length + 1 : 0);
     if (total > X_LIMIT) issues.push(`Shorten it: the text plus hashtags must be at most ${X_LIMIT} characters (now ${total}).`);
   }
   return issues;

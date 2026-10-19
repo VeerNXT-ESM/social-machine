@@ -60,6 +60,21 @@ export async function POST(req: Request) {
       .filter((t) => t.length > 0)
       .join('\n\n');
 
+    // The article's own picture (the one used for link previews), if the page names one
+    const rawImage =
+      $('meta[property="og:image:secure_url"]').attr('content') ||
+      $('meta[property="og:image"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      $('link[rel="image_src"]').attr('href') ||
+      '';
+    let imageUrl: string | null = null;
+    try {
+      const resolved = new URL(rawImage.trim(), res.finalUrl);
+      if (rawImage.trim() && (resolved.protocol === 'https:' || resolved.protocol === 'http:')) imageUrl = resolved.toString();
+    } catch {
+      imageUrl = null;
+    }
+
     const clean = text.length >= 50 ? text : $('body').text().replace(/\s+/g, ' ').trim();
     if (!clean || clean.length < 50) {
       return NextResponse.json({ error: UNREADABLE }, { status: 422 });
@@ -80,6 +95,7 @@ export async function POST(req: Request) {
       success: true,
       title: title || 'Extracted Article',
       extractedText: clean.substring(0, MAX_TEXT_CHARS),
+      imageUrl,
       url,
     });
   } catch (err) {

@@ -33,7 +33,7 @@ const HELP: Record<string, HelpSection> = {
       { term: 'Source material', text: 'The facts the posts will be built from. The AI is told to use only what is written here, so better material gives better posts.' },
       { term: 'Details on the right', text: 'Campaign is the group the post belongs to. Content type describes its purpose. Call to action is the closing line that points readers to VeerNXT. Additional instructions let you steer the tone or angle.' },
       { term: 'Channels', text: 'Tick the platforms you want posts for. Each gets its own wording, because each platform reads differently.' },
-      { term: 'Image (optional)', text: 'Upload your own picture (PNG, JPEG or WebP, up to 10 MB) and it is used on every channel, and no AI image is created. Leave it empty and the app makes an image for you.' },
+      { term: 'Image (optional)', text: 'Upload your own picture (PNG, JPEG or WebP, up to 10 MB) and it is used on every channel, and no AI image is created. If you read an article from its web address, its own picture is offered with a button to use it. Leave it empty and the app makes an image for you.' },
       { term: 'Generate', text: 'Creates the drafts and one image. It takes about half a minute and costs a few rupees of AI credit. When it finishes, you land on the editor.' },
     ],
   },

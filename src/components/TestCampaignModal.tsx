@@ -18,7 +18,7 @@ const TEST_SOURCES = [
       'We are launching VeerNXT, a platform designed to help Ex-Service Men transition into civilian careers through jobs, learning, skills development and connections with employers.',
     campaign: 'VeerNXT Platform Launch',
     contentType: 'Announcement',
-    cta: 'Discover pathways at https://veernxt.com',
+    cta: 'Discover pathways at https://veernxt.in',
   },
   {
     title: 'Skills Ex-Service Men Bring to Civilian Careers',
@@ -26,7 +26,7 @@ const TEST_SOURCES = [
       'Ex-Service Men (ESM) bring leadership, discipline, teamwork and the ability to perform under pressure. VeerNXT helps map these skills to civilian roles and connect them with employers who value them.',
     campaign: 'Skills Spotlight',
     contentType: 'Educational',
-    cta: 'Map your skills at https://veernxt.com',
+    cta: 'Map your skills at https://veernxt.in',
   },
 ];
 

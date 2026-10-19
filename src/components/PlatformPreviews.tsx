@@ -68,7 +68,7 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-neutral-900/60 text-[10px] text-neutral-700">
-            veernxt.com
+            veernxt.in
           </div>
         </div>
 
