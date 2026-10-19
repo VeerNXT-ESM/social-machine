@@ -89,7 +89,13 @@ export interface OptimizedImage {
  *  - quality starts at 82 and is lowered in steps until the file is around 600 KB.
  */
 export async function optimizeImage(input: Buffer): Promise<OptimizedImage> {
-  const sharp = await loadSharp();
+  let sharp: Sharp;
+  try {
+    sharp = await loadSharp();
+  } catch (err) {
+    console.error('The image tool (sharp) could not be loaded:', err);
+    throw new UploadError(`The server's image tool could not start (${err instanceof Error ? err.message.split(String.fromCharCode(10))[0].slice(0, 160) : 'unknown error'}).`, 500);
+  }
   const render = (quality: number) =>
     sharp(input, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' })
       .rotate()
