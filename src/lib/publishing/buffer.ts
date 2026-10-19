@@ -155,7 +155,14 @@ export class BufferProvider implements PublishingProvider {
 
       // Pictures are sent as JPEG: the most widely accepted format across LinkedIn and X.
       const imageUrl = post.media_urls?.[0];
-      if (imageUrl) input.assets = [{ image: { url: await makePublishJpeg(imageUrl) } }];
+      if (imageUrl) {
+        try {
+          input.assets = [{ image: { url: await makePublishJpeg(imageUrl) } }];
+        } catch (err) {
+          console.error('Preparing the post image failed:', err);
+          return { success: false, error: 'The post picture could not be prepared for publishing. Try removing it or choosing another picture.' };
+        }
+      }
 
       const data = await gql<CreateResult>(CREATE_POST, { input });
       const result = data.createPost;
@@ -163,7 +170,7 @@ export class BufferProvider implements PublishingProvider {
       return { success: true, external_id: result.post.id, external_url: result.post.externalLink || undefined };
     } catch (err) {
       console.error('Buffer publish failed:', err);
-      return { success: false, error: err instanceof BufferError ? err.message : 'Could not reach Buffer. Please try again.' };
+      return { success: false, error: err instanceof BufferError ? err.message : 'Something went wrong while sending the post to Buffer. Check the server log for details.' };
     }
   }
 
