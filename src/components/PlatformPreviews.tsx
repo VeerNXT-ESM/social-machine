@@ -67,20 +67,8 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
             alt="VeerNXT Media Preview"
             className="w-full h-full object-cover"
           />
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-neutral-900/60 text-[10px] text-neutral-700">
-            veernxt.in
-          </div>
         </div>
 
-        {/* Engagement Counter */}
-        <div className="flex items-center justify-between text-[11px] text-neutral-600 border-b border-neutral-200 pb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="w-4 h-4 bg-neutral-800 text-white flex items-center justify-center text-[8px]"><ThumbsUp className="w-2.5 h-2.5" /></span>
-            <span className="w-4 h-4 bg-neutral-800 text-white flex items-center justify-center text-[8px]"><Lightbulb className="w-2.5 h-2.5" /></span>
-            <span>VeerNXT & 48 others</span>
-          </div>
-          <div>12 comments • 6 reposts</div>
-        </div>
 
         {/* Actions */}
         <div className="grid grid-cols-4 gap-1 text-xs text-neutral-600 font-semibold pt-1">
@@ -114,7 +102,6 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
               <div className="flex items-center gap-1 font-bold text-sm text-neutral-900">
                 VeerNXT <CheckCircle2 className="w-3.5 h-3.5 text-neutral-700 fill-neutral-700" />
               </div>
-              <div className="text-xs text-neutral-500">@VeerNXT</div>
             </div>
           </div>
           <Twitter className="w-4 h-4 text-neutral-500" />
@@ -164,7 +151,7 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
               </div>
             </div>
             <div>
-              <span className="font-bold text-xs text-neutral-900 block">veernxt_official</span>
+              <span className="font-bold text-xs text-neutral-900 block">VeerNXT</span>
               <span className="text-[10px] text-neutral-600">Original Audio</span>
             </div>
           </div>
@@ -188,15 +175,13 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
 
         {/* Caption */}
         <div className="text-xs space-y-1">
-          <div className="font-bold text-neutral-800">284 likes</div>
-          <div className="leading-relaxed">
-            <span className="font-bold text-neutral-900 mr-1.5">veernxt_official</span>
+            <div className="leading-relaxed">
+            <span className="font-bold text-neutral-900 mr-1.5">VeerNXT</span>
             <span className="text-neutral-700">{post.text}</span>
           </div>
           {post.hashtags?.length > 0 && (
             <div className="text-neutral-700 text-[11px]">{post.hashtags.join(' ')}</div>
           )}
-          <div className="text-[10px] text-neutral-500 uppercase">2 hours ago</div>
         </div>
       </div>
     );
@@ -236,15 +221,6 @@ export function PlatformPreviews({ platform, post, visualConcept }: PlatformPrev
         <img src={mediaUrl} alt="VeerNXT Facebook" className="w-full h-full object-cover" />
       </div>
 
-      {/* Counter */}
-      <div className="flex items-center justify-between text-xs text-neutral-600 border-b border-neutral-300 pb-2">
-        <div className="flex items-center gap-1">
-          <span className="w-4 h-4 bg-neutral-800 text-white flex items-center justify-center text-[9px]"><ThumbsUp className="w-2.5 h-2.5" /></span>
-          <span className="w-4 h-4 bg-neutral-800 text-white flex items-center justify-center text-[9px]"><Heart className="w-2.5 h-2.5" /></span>
-          <span>89</span>
-        </div>
-        <div>18 Comments • 9 Shares</div>
-      </div>
 
       {/* Actions */}
       <div className="grid grid-cols-3 gap-1 text-xs text-neutral-700 font-semibold pt-1">

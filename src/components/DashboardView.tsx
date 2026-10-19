@@ -11,7 +11,6 @@ interface DashboardViewProps {
   items: ContentItem[];
   setActiveTab: (tab: NavTab) => void;
   onSelectItem: (item: ContentItem) => void;
-  onOpenTestCampaignModal?: () => void;
 }
 
 const PLATFORM_ICONS: Record<Platform, { name: string; Icon: React.ComponentType<{ className?: string }> }> = {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { BrandSettings } from '@/types';
-import { mockRepo } from '@/lib/mockStore';
+import { brandSettingsStore } from '@/lib/brandSettings';
 import { AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Button, Card, CardBody, CardHeader, Field, Input, PageHeader, Textarea } from './ui';
@@ -10,7 +10,6 @@ import { Button, Card, CardBody, CardHeader, Field, Input, PageHeader, Textarea 
 interface SettingsViewProps {
   mockMode: boolean;
   setMockMode: (val: boolean) => void;
-  onOpenTestCampaignModal?: () => void;
 }
 
 type Mode = BrandSettings['publishing_mode'];
@@ -23,13 +22,13 @@ const MODES: { id: Mode; title: string; description: string }[] = [
 
 const splitList = (value: string) => value.split(',').map((s) => s.trim());
 
-export function SettingsView({ setMockMode, onOpenTestCampaignModal }: SettingsViewProps) {
-  const [settings, setSettings] = useState<BrandSettings>(mockRepo.getBrandSettings());
+export function SettingsView({ setMockMode }: SettingsViewProps) {
+  const [settings, setSettings] = useState<BrandSettings>(brandSettingsStore.getBrandSettings());
   const [savedMsg, setSavedMsg] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    mockRepo.saveBrandSettings(settings);
+    brandSettingsStore.saveBrandSettings(settings);
     setSavedMsg(true);
     setTimeout(() => setSavedMsg(false), 3000);
   };
@@ -129,18 +128,6 @@ export function SettingsView({ setMockMode, onOpenTestCampaignModal }: SettingsV
         </Button>
       </form>
 
-      {onOpenTestCampaignModal && (
-        <Card>
-          <CardHeader title="Developer tools" />
-          <CardBody className="space-y-3">
-            <p className="text-sm text-neutral-600">
-              Runs the end-to-end test workflow: generates two sample content items with images, approves them and
-              publishes through the mock provider. Uses your OpenAI key.
-            </p>
-            <Button onClick={onOpenTestCampaignModal}>Run test campaign</Button>
-          </CardBody>
-        </Card>
-      )}
     </div>
   );
 }

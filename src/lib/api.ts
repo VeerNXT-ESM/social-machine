@@ -1,4 +1,5 @@
-import { ContentItem, MediaItem, Platform, PostStatus } from '@/types';
+import { Campaign, ContentItem, MediaItem, Platform, PostStatus } from '@/types';
+import type { AnalyticsReport } from '@/types/analytics';
 import type { LinkRow, LinkStatus, ScanSummary, SourceKind, SourceRow } from '@/types/sources';
 
 /** Thin browser client for the app's own API routes. Every call throws an Error with a readable message. */
@@ -40,6 +41,14 @@ export const api = {
 
   async getItem(id: string): Promise<ContentItem> {
     return (await request<{ item: ContentItem }>(`/api/items/${id}`)).item;
+  },
+
+  async listCampaigns(): Promise<Campaign[]> {
+    return (await request<{ campaigns: Campaign[] }>('/api/campaigns')).campaigns;
+  },
+
+  async getAnalytics(): Promise<AnalyticsReport> {
+    return request<AnalyticsReport>('/api/analytics');
   },
 
   async deleteItem(id: string): Promise<void> {

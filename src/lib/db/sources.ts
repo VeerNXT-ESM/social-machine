@@ -233,3 +233,10 @@ export async function getSourceNameForItem(itemId: string): Promise<string | nul
   const joined = data as unknown as { content_sources: { name: string } | null } | null;
   return joined?.content_sources?.name ?? null;
 }
+
+/** When content made from an article is deleted, put the article back in the "new" list. */
+export async function releaseLinksForItem(itemId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from('source_links').update({ status: 'new', content_item_id: null }).eq('content_item_id', itemId);
+  if (error) throw new Error(error.message);
+}

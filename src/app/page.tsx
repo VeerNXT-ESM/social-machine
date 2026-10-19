@@ -14,7 +14,6 @@ import { MediaLibraryView } from '@/components/MediaLibraryView';
 import { CampaignsView } from '@/components/CampaignsView';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { SettingsView } from '@/components/SettingsView';
-import { TestCampaignModal } from '@/components/TestCampaignModal';
 import { ManualPublishModal } from '@/components/ManualPublishModal';
 import { api, setPublishMode } from '@/lib/api';
 import { ContentItem, PlatformPost } from '@/types';
@@ -26,9 +25,7 @@ export default function Home() {
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [mockMode, setMockMode] = useState<boolean>(true);
   useEffect(() => setPublishMode(mockMode ? 'mock' : 'buffer'), [mockMode]);
-
   // Modals
-  const [testModalOpen, setTestModalOpen] = useState<boolean>(false);
   const [manualPost, setManualPost] = useState<PlatformPost | null>(null);
   const [prefill, setPrefill] = useState<ContentPrefill | null>(null);
 
@@ -110,7 +107,6 @@ export default function Home() {
           if (tab === 'create') setPrefill(null);
           setActiveTab(tab);
         }}
-        onOpenTestCampaignModal={() => setTestModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -120,7 +116,6 @@ export default function Home() {
           setActiveTab={setActiveTab}
           mockMode={mockMode}
           setMockMode={setMockMode}
-          onOpenTestCampaignModal={() => setTestModalOpen(true)}
         />
 
         <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">
@@ -138,7 +133,6 @@ export default function Home() {
               items={items}
               setActiveTab={setActiveTab}
               onSelectItem={handleSelectItem}
-              onOpenTestCampaignModal={() => setTestModalOpen(true)}
             />
           )}
 
@@ -151,6 +145,10 @@ export default function Home() {
               <ContentEditorView
                 item={selectedItem}
                 onUpdateItem={applyItem}
+                onDeleted={() => {
+                  setSelectedItem(null);
+                  refreshItems();
+                }}
                 onOpenManualPublish={(post) => setManualPost(post)}
               />
             ) : (
@@ -188,7 +186,6 @@ export default function Home() {
             <SettingsView
               mockMode={mockMode}
               setMockMode={setMockMode}
-              onOpenTestCampaignModal={() => setTestModalOpen(true)}
             />
           )}
 
@@ -197,15 +194,6 @@ export default function Home() {
       </div>
 
       {/* Test Campaign Modal (#35) */}
-      <TestCampaignModal
-        isOpen={testModalOpen}
-        onClose={() => setTestModalOpen(false)}
-        onCompleteTest={(newItem) => {
-          refreshItems();
-          setSelectedItem(newItem);
-          setActiveTab('content');
-        }}
-      />
 
       {/* Manual Publishing Modal (#19) */}
       <ManualPublishModal

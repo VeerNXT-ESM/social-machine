@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { refinePlatformPost } from '@/lib/openai';
+import { AiError, refinePlatformPost } from '@/lib/openai';
 
 export async function POST(req: Request) {
   try {
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       post: refined,
     });
   } catch (err) {
+    if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: 502 });
     console.error('API /api/content/refine error:', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to refine post' },

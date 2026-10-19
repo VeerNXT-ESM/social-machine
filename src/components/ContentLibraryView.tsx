@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ContentItem, Platform } from '@/types';
 import { api } from '@/lib/api';
-import { Search, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { Search, PlusCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 import { Button, Card, EmptyState, Input, Select, StatusLabel } from './ui';
 
@@ -66,6 +66,30 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
     }
   };
 
+  const deleteSelected = async () => {
+    const chosen = items.filter((i) => selected.includes(i.id));
+    const queued = chosen.flatMap((i) => Object.values(i.posts ?? {})).filter((p) => p.status === 'SCHEDULED').length;
+    const published = chosen.flatMap((i) => Object.values(i.posts ?? {})).filter((p) => p.status === 'PUBLISHED').length;
+    const lines = [`Delete ${chosen.length} item${chosen.length === 1 ? '' : 's'} and all their channel posts? This cannot be undone.`];
+    if (queued) lines.push(`${queued} scheduled post${queued === 1 ? '' : 's'} will also be cancelled in Buffer.`);
+    if (published) lines.push(`${published} already published post${published === 1 ? '' : 's'} will stay on the social networks; only the app's copy is removed.`);
+    if (!window.confirm(lines.join('\n\n'))) return;
+    setBusy(true);
+    setError(null);
+    const failures: string[] = [];
+    for (const i of chosen) {
+      try {
+        await api.deleteItem(i.id);
+      } catch (err) {
+        failures.push(`${i.title}: ${err instanceof Error ? err.message : 'could not be deleted'}`);
+      }
+    }
+    setSelected(failures.length ? chosen.filter((i) => failures.some((f) => f.startsWith(i.title))).map((i) => i.id) : []);
+    if (failures.length) setError(failures.join(' '));
+    setBusy(false);
+    onItemsChanged();
+  };
+
   const approvedCount = (i: ContentItem) => {
     const posts = Object.values(i.posts || {});
     const done = posts.filter((p) => ['APPROVED', 'SCHEDULED', 'PUBLISHED'].includes(p.status)).length;
@@ -114,6 +138,9 @@ export function ContentLibraryView({ items, onSelectItem, onCreate, onItemsChang
               <span className="text-sm text-neutral-700">{selected.length} selected</span>
               <Button onClick={approveSelected} disabled={busy}>
                 <CheckCircle2 className="w-4 h-4" /> Approve posts
+              </Button>
+              <Button onClick={deleteSelected} disabled={busy}>
+                <Trash2 className="w-4 h-4" /> Delete
               </Button>
               <Button variant="ghost" onClick={() => setSelected([])}>
                 Clear

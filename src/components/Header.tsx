@@ -22,7 +22,6 @@ interface HeaderProps {
   setActiveTab: (tab: NavTab) => void;
   mockMode: boolean;
   setMockMode: (val: boolean) => void;
-  onOpenTestCampaignModal: () => void;
 }
 
 const TITLES: Record<string, string> = {

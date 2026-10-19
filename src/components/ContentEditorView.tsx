@@ -26,6 +26,7 @@ import {
   Loader2,
   Calendar,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 import {
@@ -46,6 +47,8 @@ import { statusText } from './ui/StatusLabel';
 interface ContentEditorViewProps {
   item: ContentItem;
   onUpdateItem: (updated: ContentItem) => void;
+  /** Called after the item has been deleted, so the page can leave the editor. */
+  onDeleted: () => void;
   onOpenManualPublish: (post: PlatformPost) => void;
 }
 
@@ -70,7 +73,7 @@ const REFINEMENTS: { action: RefineAction; label: string; Icon: React.ComponentT
 
 const defaultSlot = () => new Date(Date.now() + 86400000).toISOString().slice(0, 16);
 
-export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: ContentEditorViewProps) {
+export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish, onDeleted }: ContentEditorViewProps) {
   const selectedPlatforms = item.selected_platforms || ['linkedin', 'x', 'instagram', 'facebook'];
   const [activePlatform, setActivePlatform] = useState<Platform>(selectedPlatforms[0] || 'linkedin');
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
@@ -157,6 +160,24 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
 
   const handleApproveCurrent = () =>
     run(() => api.updatePost(item.id, activePlatform, { status: 'APPROVED' }), `${platformName} post approved.`);
+
+  const handleDelete = async () => {
+    const posts = Object.values(item.posts ?? {});
+    const queued = posts.filter((p) => p.status === 'SCHEDULED').length;
+    const published = posts.filter((p) => p.status === 'PUBLISHED').length;
+    const lines = [`Delete "${item.title}" and all its channel posts? This cannot be undone.`];
+    if (queued) lines.push(`${queued} scheduled post${queued === 1 ? '' : 's'} will also be cancelled in Buffer.`);
+    if (published) lines.push(`${published} already published post${published === 1 ? '' : 's'} will stay on the social networks; only the app's copy is removed.`);
+    if (!window.confirm(lines.join('\n\n'))) return;
+    setBusy(true);
+    try {
+      await api.deleteItem(item.id);
+      onDeleted();
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'Could not delete this content.');
+      setBusy(false);
+    }
+  };
 
   const handleApproveAll = () => run(() => api.approve(item.id), 'All channel posts approved.');
 
@@ -258,9 +279,14 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
           </div>
           <h1 className="text-lg font-semibold text-neutral-900 truncate">{item.title}</h1>
         </div>
-        <Button variant="primary" disabled={busy} onClick={handleApproveAll}>
-          <CheckCircle2 className="w-4 h-4" /> Approve all channels
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="ghost" disabled={busy} onClick={handleDelete}>
+            <Trash2 className="w-4 h-4" /> Delete
+          </Button>
+          <Button variant="primary" disabled={busy} onClick={handleApproveAll}>
+            <CheckCircle2 className="w-4 h-4" /> Approve all channels
+          </Button>
+        </div>
       </Card>
 
       {actionMessage && (

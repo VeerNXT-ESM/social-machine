@@ -28,6 +28,9 @@ PLATFORM SPECIFIC GUIDELINES:
   Style: Conversational, approachable, community-oriented. Slightly more detailed context than X, warm and encouraging tone, clear CTA.
 `;
 
+/** The AI service is unavailable; the message is safe to show to the person using the app. */
+export class AiError extends Error {}
+
 export async function generateSocialContent(params: {
   title: string;
   sourceContent: string;
@@ -43,8 +46,7 @@ export async function generateSocialContent(params: {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    // Return high-quality realistic fallback output matching user requirements
-    return getFallbackGeneratedContent(params);
+    throw new AiError('The AI service is not set up: OPENAI_API_KEY is missing on the server.');
   }
 
   try {
@@ -103,8 +105,8 @@ Please generate platform-specific social posts strictly in JSON format following
     // Sanity check filter to ensure no 'Agniveer' mention crept in
     return sanitizeOutput(parsed);
   } catch (err) {
-    console.error('Error generating content with OpenAI, using fallback:', err);
-    return getFallbackGeneratedContent(params);
+    console.error('Error generating content with OpenAI:', err);
+    throw new AiError('The AI service could not write the posts just now. Please try again in a moment.');
   }
 }
 
@@ -117,55 +119,6 @@ function sanitizeOutput(output: GeneratedPostsSchema): GeneratedPostsSchema {
   return output;
 }
 
-export function getFallbackGeneratedContent(params: {
-  title: string;
-  sourceContent: string;
-  contentType: string;
-  sourceUrl?: string;
-  cta?: string;
-  selectedPlatforms: Platform[];
-}): GeneratedPostsSchema {
-  const title = params.title || 'VeerNXT Career Pathways';
-  const ctaText = params.cta || 'Discover career transition opportunities at https://veernxt.in';
-  const cleanSource = params.sourceContent || title;
-  const linkText = params.sourceUrl ? `\n\nRead full source: ${params.sourceUrl}` : '';
-
-  return {
-    source_summary: `This announcement highlights key career transition initiatives for Ex-Service Men (ESM), focusing on structured skill mapping and corporate integration.`,
-    core_message: `Ex-Service Men possess elite leadership and operational capabilities that translate directly into high-growth civilian leadership roles.`,
-    suggested_angle: `Focus on mutual value creation between corporate hiring leaders and transitioning Ex-Service Men through VeerNXT.`,
-    posts: {
-      linkedin: {
-        text: `An essential development in today's workforce landscape is how corporate leaders integrate experienced defense professionals into key management roles. Ex-Service Men (ESM) possess decades of structured leadership, operational discipline, and crisis management expertise—qualities that drive high performance in corporate environments.\n\n${cleanSource}\n\nAt VeerNXT, we work to address this transition by providing tailored upskilling programs, direct employer matching, and structured career transition frameworks. When companies hire Ex-Service Men, they gain proven leaders ready to execute on day one.${linkText}`,
-        hashtags: ['#VeerNXT', '#ExServiceMen', '#CareerTransition', '#Leadership', '#CorporateTalent'],
-        cta: ctaText
-      },
-      x: {
-        text: `Bridging military excellence with civilian careers. 🇮🇳\n\n${cleanSource.substring(0, 180)}...\n\nEx-Service Men (ESM) bring unmatched discipline & operational execution to top corporate teams.\n\nLearn how VeerNXT makes transition seamless 👇\nhttps://veernxt.in`,
-        hashtags: ['#VeerNXT', '#ExServiceMen', '#Careers'],
-        cta: ctaText
-      },
-      instagram: {
-        text: `Empowering Ex-Service Men (ESM) as they embark on their civilian career journey. 🚀\n\n${title}\n\n${cleanSource.substring(0, 150)}...\n\nVeerNXT bridges defense talent with corporate opportunity through skill development and direct employer connections.`,
-        caption: `Empowering Ex-Service Men (ESM) as they embark on their civilian career journey. 🚀\n\n${title}\n\n${cleanSource.substring(0, 150)}...\n\nVeerNXT bridges defense talent with corporate opportunity through skill development and direct employer connections.`,
-        hashtags: ['#VeerNXT', '#ExServiceMen', '#VeteranCareers', '#Leadership'],
-        cta: 'Tap the link in bio to learn more about VeerNXT.'
-      },
-      facebook: {
-        text: `We are excited to share an important step forward for Ex-Service Men (ESM) transitioning into civilian careers!\n\n${cleanSource}\n\nTransitioning from military service to the corporate world requires clear guidance, supportive networks, and skill validation. VeerNXT is built to support our veterans every step of the way—connecting talent with leading employers who value discipline and operational leadership.\n\nShare this with an Ex-Service Man or hiring manager in your network!`,
-        hashtags: ['#VeerNXT', '#ExServiceMen', '#CareerTransition', '#Community'],
-        cta: ctaText
-      }
-    },
-    visual_direction: {
-      concept: `A modern corporate workspace setting featuring an Ex-Service Man leading a strategic project meeting, reflecting confidence, authority, and technology integration.`,
-      image_prompt: `High-resolution professional photo of a focused veteran professional in business attire collaborating with a team in a sleek glass conference room, subtle gold lighting, deep navy background accent, 4k.`,
-      aspect_ratio: '16:9',
-      headline_suggestion: `From Defense Excellence to Civilian Leadership`
-    }
-  };
-}
-
 export async function refinePlatformPost(params: {
   platform: Platform;
   currentText: string;
@@ -176,7 +129,7 @@ export async function refinePlatformPost(params: {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return getFallbackRefinedPost(params);
+    throw new AiError('The AI service is not set up: OPENAI_API_KEY is missing on the server.');
   }
 
   try {
@@ -216,35 +169,7 @@ Return JSON:
       cta: parsed.cta || 'Learn more at VeerNXT',
     };
   } catch (err) {
-    return getFallbackRefinedPost(params);
+    console.error('Error refining post with OpenAI:', err);
+    throw new AiError('The AI service could not change this post just now. Please try again in a moment.');
   }
-}
-
-function getFallbackRefinedPost(params: {
-  platform: Platform;
-  currentText: string;
-  action: string;
-}): SinglePlatformPost {
-  let newText = params.currentText;
-
-  if (params.action === 'shorten') {
-    const lines = params.currentText.split('\n\n');
-    newText = lines.slice(0, Math.max(1, lines.length - 1)).join('\n\n');
-  } else if (params.action === 'expand') {
-    newText = `${params.currentText}\n\nEx-Service Men (ESM) bring invaluable leadership and adaptability to corporate organizations. VeerNXT ensures this transition is backed by dedicated learning modules and employer partnerships.`;
-  } else if (params.action === 'hook') {
-    newText = `🔥 Ex-Service Men are shaping the future of corporate leadership.\n\n${params.currentText.replace(/^[^\n]+\n\n/, '')}`;
-  } else if (params.action === 'professional') {
-    newText = params.currentText.replace(/!/g, '.').replace(/🚀|🔥|✨/g, '');
-  } else if (params.action === 'conversational') {
-    newText = `Here is something important for our community:\n\n${params.currentText}`;
-  } else if (params.action === 'cta') {
-    newText = `${params.currentText}\n\n 👉 Take the next step in your career transition: Visit https://veernxt.in today.`;
-  }
-
-  return {
-    text: newText,
-    hashtags: ['#VeerNXT', '#ExServiceMen', '#CareerTransition'],
-    cta: 'Visit https://veernxt.in to learn more.',
-  };
 }

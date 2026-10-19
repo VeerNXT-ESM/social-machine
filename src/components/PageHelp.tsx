@@ -44,6 +44,7 @@ const HELP: Record<string, HelpSection> = {
       { term: 'Search and filters', text: 'Type in the search box, or narrow the list by stage (status) or by channel.' },
       { term: 'Columns', text: 'Content shows the title and campaign. Channels shows where it will go. Status shows the stage. "Posts approved" shows how many of its posts have been approved (for example 3 of 4).' },
       { term: 'Open an item', text: 'Click any row to open it in the editor.' },
+      { term: 'Delete content', text: 'Tick the boxes and press "Delete" to remove content and all its channel posts for good (you are asked to confirm). Posts waiting in Buffer are cancelled there first. Posts already published stay on LinkedIn or X; only the app copy is removed. You can also delete from inside an item.' },
       { term: 'Approve several at once', text: 'Tick the boxes on the left of the rows, then press "Approve posts". Posts that are already scheduled or published are left alone.' },
     ],
   },
@@ -96,20 +97,20 @@ const HELP: Record<string, HelpSection> = {
   },
   campaigns: {
     title: 'Campaigns',
-    intro: 'A campaign is a group of posts built around one theme, such as a product launch or a series on skills.',
+    intro: 'A campaign is a group of content built around one theme, such as a product launch or a series on skills.',
     items: [
-      { term: 'The cards', text: 'Each card shows a campaign\'s name, stage (Active, Planned or Completed), a short description and how many posts it holds.' },
-      { term: 'This page is still a preview', text: 'The campaigns shown are samples. When you type a campaign name on the Create page, it is saved with that content, but it does not appear on this page yet.' },
-      { term: 'Turn an article into a 2-week campaign', text: 'A demonstration of an idea: paste an article and a five-post sequence is planned. It adds an example card but does not write the posts yet.' },
+      { term: 'The cards', text: "Each card shows a campaign's name, its stage (Active, Planned or Completed) and how many content items belong to it." },
+      { term: 'How a campaign is created', text: 'Type a campaign name in the Details box when you create content. If the name is new, the campaign is created and appears here. Nothing on this page is sample data.' },
     ],
   },
   analytics: {
     title: 'Analytics',
-    intro: 'Will show how your posts perform: how many people saw them and how they reacted.',
+    intro: 'How your published posts performed, read from Buffer.',
     items: [
-      { term: 'The numbers shown are examples', text: 'Real results can only appear once the app is connected to your LinkedIn, X, Instagram and Facebook accounts, which has not been set up. Do not treat these figures as real.' },
-      { term: 'Impressions, likes, comments, shares, clicks, saves', text: 'Impressions are the number of times a post was shown. The others count the different ways people reacted to it.' },
-      { term: 'Performance by channel', text: 'The same figures split by platform, with an engagement percentage, which is reactions as a share of views.' },
+      { term: 'Real figures only', text: 'Everything on this page comes from Buffer. Nothing is estimated. A dash means the platform has not reported that figure; platforms usually report a few hours after a post goes out.' },
+      { term: 'The counts at the top', text: 'Published is the number of posts Buffer has sent. Scheduled, Approved and In review are counted from the posts in this app.' },
+      { term: 'Impressions, likes, comments, shares, clicks, saves', text: 'Impressions are the number of times a post was shown. The others count the different ways people reacted to it. A tile appears only once a platform has reported it.' },
+      { term: 'By channel and Published posts', text: 'The same figures split by platform and by post, with a link to open each post. Press Refresh to read the latest.' },
     ],
   },
   settings: {
@@ -120,7 +121,6 @@ const HELP: Record<string, HelpSection> = {
       { term: 'Brand voice', text: 'The brand name, who you are speaking to, and the words to prefer. These guide the writing.' },
       { term: 'Prohibited words', text: 'Words that must never appear in posts. "Agniveer" is on this list. The app checks generated posts against it.' },
       { term: 'Save settings', text: 'Press it after any change. These settings are kept in this browser on this computer, so they will not follow you to another computer yet.' },
-      { term: 'Developer tools', text: 'The test campaign creates two sample pieces of content with images and runs them through the whole process. It uses a small amount of AI credit each time, so it is meant for testing, not everyday use.' },
     ],
   },
 };

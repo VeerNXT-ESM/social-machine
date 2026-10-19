@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { addSourceLink } from '@/lib/db/items';
-import { generateSocialContent } from '@/lib/openai';
+import { AiError, generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
 import { createItem, NewPost } from '@/lib/db/items';
 import { getSourceNameForItem, updateLink } from '@/lib/db/sources';
@@ -125,6 +125,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, item: finalItem, ai_result: aiResult, guard });
   } catch (err) {
+    if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: 502 });
     return serverError('POST /api/content/generate', err);
   }
 }

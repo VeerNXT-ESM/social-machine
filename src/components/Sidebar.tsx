@@ -32,10 +32,9 @@ export type NavTab =
 interface SidebarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  onOpenTestCampaignModal: () => void;
 }
 
-export function Sidebar({ activeTab, setActiveTab, onOpenTestCampaignModal }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'create', label: 'Create', icon: <PlusCircle className="w-5 h-5" />, badge: 'AI' },

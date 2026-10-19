@@ -132,16 +132,3 @@ export interface BrandSettings {
   timezone: string;
 }
 
-export interface AnalyticsSummary {
-  total_impressions: number;
-  total_likes: number;
-  total_comments: number;
-  total_shares: number;
-  total_clicks: number;
-  total_saves: number;
-  by_platform: Record<Platform, {
-    posts_count: number;
-    impressions: number;
-    engagement: number;
-  }>;
-}

@@ -21,7 +21,7 @@ interface BufferChannel {
 
 class BufferError extends Error {}
 
-async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+export async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const key = process.env.BUFFER_API_KEY;
   if (!key) throw new BufferError('The Buffer API key is not set. Add BUFFER_API_KEY to the server settings.');
 

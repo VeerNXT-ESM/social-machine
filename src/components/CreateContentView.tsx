@@ -44,7 +44,7 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [sourceContent, setSourceContent] = useState(prefill?.summary ?? '');
   const [websiteUrl, setWebsiteUrl] = useState(prefill?.url ?? '');
-  const [campaign, setCampaign] = useState(prefill ? 'Industry insights' : 'VeerNXT Launch');
+  const [campaign, setCampaign] = useState(prefill ? 'Industry insights' : '');
   const [contentType, setContentType] = useState<ContentType>(prefill ? 'Thought Leadership' : 'Announcement');
   const [cta, setCta] = useState('Discover career transition pathways at https://veernxt.in');
   const [additionalInstructions, setAdditionalInstructions] = useState(
@@ -101,19 +101,6 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
       active = false;
     };
   }, [prefill]);
-
-  // Prefill Example handler
-  const handleLoadExample = () => {
-    setSourceType('article');
-    setTitle('Launching VeerNXT');
-    setSourceContent(
-      'We are launching VeerNXT, a platform designed to help Ex-Service Men transition into civilian careers through jobs, learning, skills development and employer connections.'
-    );
-    setCampaign('VeerNXT Launch');
-    setContentType('Announcement');
-    setCta('Visit https://veernxt.in to explore opportunities.');
-    setWebsiteUrl('https://veernxt.in');
-  };
 
   // URL Scrape Handler
   const handleExtractUrl = async () => {
@@ -253,12 +240,6 @@ export function CreateContentView({ onGenerated, prefill }: CreateContentViewPro
       <PageHeader
         title="New content"
         description="Add source material, choose channels, and generate a draft for each."
-        actions={
-          <Button onClick={handleLoadExample}>
-            <Zap className="w-4 h-4" />
-            Load example
-          </Button>
-        }
       />
 
       {errorMsg && (
