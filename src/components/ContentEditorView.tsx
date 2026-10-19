@@ -5,6 +5,7 @@ import { ContentItem, Platform, PlatformPost } from '@/types';
 import { PlatformPreviews } from './PlatformPreviews';
 import { PostImageCard } from './PostImageCard';
 import { api, isLiveMode } from '@/lib/api';
+import { findProhibited, postReadableText } from '@/lib/prohibited';
 import {
   Sparkles,
   CheckCircle2,
@@ -27,6 +28,7 @@ import {
   Calendar,
   AlertCircle,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Linkedin, Twitter, Instagram, Facebook } from './SocialIcons';
 import {
@@ -87,6 +89,20 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish, onD
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
 
   const currentPost: PlatformPost | undefined = item.posts?.[activePlatform];
+
+  // The brand's prohibited words, so a problem is shown as soon as it is typed
+  const [prohibitedWords, setProhibitedWords] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    api
+      .getBrandSettings()
+      .then((b) => active && setProhibitedWords(b.words_to_avoid))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+  const prohibitedFound = currentPost ? findProhibited(postReadableText(currentPost), prohibitedWords) : [];
   const platformName = PLATFORM_META[activePlatform].name;
 
   const notify = (message: string) => {
@@ -288,6 +304,15 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish, onD
           </Button>
         </div>
       </Card>
+
+      {prohibitedFound.length > 0 && (
+        <div className="p-3 bg-white border border-neutral-800 text-neutral-900 text-sm flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            This {platformName} post contains a prohibited word or phrase: <strong>{prohibitedFound.join(', ')}</strong>. Remove it before approving. It cannot be scheduled or published until you do.
+          </span>
+        </div>
+      )}
 
       {actionMessage && (
         <div className="p-3 bg-white border border-neutral-400 text-neutral-900 text-sm flex items-center gap-2" role="status">

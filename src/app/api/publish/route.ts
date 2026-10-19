@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getPublishingProvider } from '@/lib/publishing';
 import { getPost, updatePost } from '@/lib/db/items';
 import { deleteBufferPost, isBufferId } from '@/lib/publishing/buffer';
+import { getBrandSettings } from '@/lib/db/brand';
+import { findProhibited, postReadableText } from '@/lib/prohibited';
 import { badRequest, isPlatform, notFound, serverError } from '@/lib/db/http';
 
 /**
@@ -29,6 +31,15 @@ export async function POST(req: Request) {
       }
       const item = await updatePost(contentItemId, platform, { status: 'APPROVED', scheduled_at: null, external_post_id: null } as never);
       return NextResponse.json({ success: true, status: 'APPROVED', item });
+    }
+
+    // Whatever its route here, a post with a prohibited word is never sent out
+    if (action === 'publish_now' || action === 'schedule') {
+      const { words_to_avoid } = await getBrandSettings();
+      const found = findProhibited(postReadableText(post), words_to_avoid);
+      if (found.length > 0) {
+        return badRequest(`This post contains a prohibited word or phrase (${found.join(', ')}). Edit the post to remove it, then try again.`);
+      }
     }
 
     // Only approved posts may be scheduled or published

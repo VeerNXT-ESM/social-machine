@@ -4,7 +4,7 @@ import { AiError, generateSocialContent } from '@/lib/openai';
 import { generatePostImage } from '@/lib/imageGen';
 import { createItem, NewPost } from '@/lib/db/items';
 import { getSourceNameForItem, updateLink } from '@/lib/db/sources';
-import { enforceInsightRules } from '@/lib/contentGuard';
+import { enforceInsightRules, enforceProhibitedWords } from '@/lib/contentGuard';
 import { getItem } from '@/lib/db/items';
 import { isOwnMediaUrl } from '@/lib/db/media';
 import { badRequest, isPlatform, serverError } from '@/lib/db/http';
@@ -113,6 +113,15 @@ export async function POST(req: Request) {
       }
     }
 
+    // Brand rule: no prohibited word may remain in any post (rewritten if the AI used one)
+    let brandCheck: Awaited<ReturnType<typeof enforceProhibitedWords>> = [];
+    try {
+      brandCheck = await enforceProhibitedWords(finalItem.id);
+      if (brandCheck.length > 0) finalItem = (await getItem(finalItem.id)) ?? finalItem;
+    } catch (err) {
+      console.error('Prohibited-word check failed (the content itself is saved):', err);
+    }
+
     // The article's own address goes at the end of each post (after any rewriting, so it cannot be lost)
     if (typeof sourceUrl === 'string' && /^https?:\/\//.test(sourceUrl)) {
       try {
@@ -123,7 +132,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, item: finalItem, ai_result: aiResult, guard });
+    return NextResponse.json({ success: true, item: finalItem, ai_result: aiResult, guard, brand_check: brandCheck });
   } catch (err) {
     if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: 502 });
     return serverError('POST /api/content/generate', err);
