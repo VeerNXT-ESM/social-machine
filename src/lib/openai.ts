@@ -1,10 +1,8 @@
 import OpenAI from 'openai';
 import { GeneratedPostsSchema, Platform, ContentType, SinglePlatformPost, BrandSettings } from '@/types';
+import { getBrandSettings } from '@/lib/db/brand';
 
-export const SYSTEM_PROMPT_VEERNXT = `
-You are the Lead Editorial Communications Strategist for "VeerNXT".
-VeerNXT is an AI-powered platform designed to empower Ex-Service Men (ESM) to transition into high-growth civilian careers through skill mapping, corporate employer connections, and learning pathways.
-
+const FIXED_RULES = `
 CRITICAL MANDATORY RULES:
 1. NEVER mention "Agniveer" or anything related to it anywhere in your generated text, hashtags, or UI recommendations.
 2. ALWAYS use the term "Ex-Service Men (ESM)" or "veteran transition" where appropriate.
@@ -27,6 +25,29 @@ PLATFORM SPECIFIC GUIDELINES:
 - FACEBOOK:
   Style: Conversational, approachable, community-oriented. Slightly more detailed context than X, warm and encouraging tone, clear CTA.
 `;
+
+const listOrNone = (items: string[]) => (items.length ? items.join('; ') : '(none set)');
+
+/** The instructions the AI always receives: the saved brand voice, then the rules that can never be changed. */
+export function buildSystemPrompt(brand: BrandSettings): string {
+  return `
+You are the Lead Editorial Communications Strategist for "${brand.brand_name}".
+${brand.brand_description}
+
+BRAND VOICE (set by the team; follow it):
+- Audience: ${brand.audience}
+- Tone: ${listOrNone(brand.tone)}
+- Prefer these terms where they fit naturally: ${listOrNone(brand.words_to_use)}
+- Never use these words or ideas: ${listOrNone(brand.words_to_avoid)}
+- Key messages (use only when relevant to the source, never as claims the source does not make): ${listOrNone(brand.key_messages)}
+- Call to action style: ${brand.cta_style || '(none set)'}
+${FIXED_RULES}`;
+}
+
+/** The system prompt for the brand voice currently saved on the Settings page. */
+export async function getSystemPrompt(): Promise<string> {
+  return buildSystemPrompt(await getBrandSettings());
+}
 
 /** The AI service is unavailable; the message is safe to show to the person using the app. */
 export class AiError extends Error {}
@@ -51,6 +72,7 @@ export async function generateSocialContent(params: {
 
   try {
     const openai = new OpenAI({ apiKey });
+    const systemPrompt = await getSystemPrompt();
 
     const promptText = `
 Source Title: "${params.title}"
@@ -90,7 +112,7 @@ Please generate platform-specific social posts strictly in JSON format following
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_VEERNXT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: promptText }
       ],
       response_format: { type: 'json_object' },
@@ -134,6 +156,7 @@ export async function refinePlatformPost(params: {
 
   try {
     const openai = new OpenAI({ apiKey });
+    const systemPrompt = await getSystemPrompt();
 
     const prompt = `
 Platform: ${params.platform.toUpperCase()}
@@ -156,7 +179,7 @@ Return JSON:
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_VEERNXT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },

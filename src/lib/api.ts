@@ -1,4 +1,4 @@
-import { Campaign, ContentItem, MediaItem, Platform, PostStatus } from '@/types';
+import { BrandSettings, Campaign, ContentItem, MediaItem, Platform, PostStatus } from '@/types';
 import type { AnalyticsReport } from '@/types/analytics';
 import type { LinkRow, LinkStatus, ScanSummary, SourceKind, SourceRow } from '@/types/sources';
 
@@ -41,6 +41,14 @@ export const api = {
 
   async getItem(id: string): Promise<ContentItem> {
     return (await request<{ item: ContentItem }>(`/api/items/${id}`)).item;
+  },
+
+  async getBrandSettings(): Promise<BrandSettings> {
+    return (await request<{ settings: BrandSettings }>('/api/brand')).settings;
+  },
+
+  async saveBrandSettings(settings: BrandSettings): Promise<BrandSettings> {
+    return (await request<{ settings: BrandSettings }>('/api/brand', { method: 'PUT', body: JSON.stringify(settings) })).settings;
   },
 
   async listCampaigns(): Promise<Campaign[]> {

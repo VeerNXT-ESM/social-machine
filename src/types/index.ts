@@ -128,7 +128,5 @@ export interface BrandSettings {
   words_to_avoid: string[];
   key_messages: string[];
   cta_style: string;
-  publishing_mode: 'mock' | 'buffer' | 'native' | 'manual';
-  timezone: string;
 }
 

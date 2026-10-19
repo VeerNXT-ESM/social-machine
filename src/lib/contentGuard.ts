@@ -1,6 +1,6 @@
 import 'server-only';
 import OpenAI from 'openai';
-import { SYSTEM_PROMPT_VEERNXT } from '@/lib/openai';
+import { getSystemPrompt } from '@/lib/openai';
 import { checkInsightPost } from '@/lib/insightRules';
 import { getItem, updatePost } from '@/lib/db/items';
 import { Platform, PlatformPost } from '@/types';
@@ -21,12 +21,13 @@ async function rewrite(post: PlatformPost, issues: string[], sourceName: string,
   if (!apiKey || apiKey === 'your_openai_api_key_here') return null;
 
   const openai = new OpenAI({ apiKey });
+  const systemPrompt = await getSystemPrompt();
   const res = await openai.chat.completions.create({
     model: 'gpt-4o',
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT_VEERNXT },
+      { role: 'system', content: systemPrompt },
       {
         role: 'user',
         content: `Rewrite this ${post.platform.toUpperCase()} post so it fixes every problem listed. Keep the same platform style and keep it faithful to the article.

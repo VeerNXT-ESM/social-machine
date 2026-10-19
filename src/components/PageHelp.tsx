@@ -115,12 +115,12 @@ const HELP: Record<string, HelpSection> = {
   },
   settings: {
     title: 'Settings',
-    intro: 'Controls how the app behaves and how posts should sound.',
+    intro: 'Controls how the app publishes and how posts should sound.',
     items: [
-      { term: 'Publishing mode', text: 'Sandbox runs everything as a rehearsal. Manual publishing means you copy each post and post it yourself. The Buffer option really publishes to LinkedIn and X (the same as switching to Live at the top). Facebook and Instagram are not connected yet.' },
-      { term: 'Brand voice', text: 'The brand name, who you are speaking to, and the words to prefer. These guide the writing.' },
-      { term: 'Prohibited words', text: 'Words that must never appear in posts. "Agniveer" is on this list. The app checks generated posts against it.' },
-      { term: 'Save settings', text: 'Press it after any change. These settings are kept in this browser on this computer, so they will not follow you to another computer yet.' },
+      { term: 'Publishing mode', text: 'Sandbox runs everything as a rehearsal. Manual publishing means you copy each post and post it yourself. Buffer really publishes to LinkedIn and X (the same as switching to Live at the top). Facebook and Instagram are not connected yet. The app always opens in Sandbox.' },
+      { term: 'Brand voice', text: 'The brand name, a short description, who you are speaking to, the tone, preferred words and key messages. The AI follows these every time it writes or rewrites a post. Change them and press Save; the new voice applies to posts created afterwards (existing posts are not rewritten).' },
+      { term: 'Prohibited words', text: 'Words and ideas that must never appear in posts. "Agniveer" is always on this list and comes back if you remove it. Other rules, such as never inventing facts, are fixed and cannot be changed here.' },
+      { term: 'Saved for everyone', text: 'The brand voice is stored on the server, so everyone who signs in uses the same one, on any computer.' },
     ],
   },
 };
