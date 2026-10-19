@@ -52,8 +52,17 @@ export function AnalyticsView() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // First load. (Refresh uses load(); this version never updates state before the response arrives.)
+    let active = true;
+    api
+      .getAnalytics()
+      .then((r) => active && setReport(r))
+      .catch((err) => active && setError(err instanceof Error ? err.message : 'Could not load the figures.'))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const tiles = report ? TILES.map((t) => ({ ...t, value: pick(report.totals, t.keys) })).filter((t) => t.value !== null) : [];
   const status = report?.app_counts.by_status ?? {};

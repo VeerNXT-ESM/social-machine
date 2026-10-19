@@ -1,93 +1,113 @@
 # VeerNXT Social (socialmachine) - Status Report
 
-**Date:** 30 September 2026
-**Branch:** `master` (nothing committed this session; all work is uncommitted in the working tree)
-**Latest:** corporate UI redesign done (grey and white, square corners, new Calendar, Content Library table, two-column composer, responsive); see [UI_REDESIGN_PLAN.md](UI_REDESIGN_PLAN.md). Shared component set built and applied
-**Note:** `npm run lint` reports 9 errors, none in `src/components`; `npm run build` passes; `tsc --noEmit` is clean
+**Date:** 19 October 2026
+**Branch:** `main`, pushed to GitHub (`VeerNXT-ESM/social-machine`). Vercel redeploys on every push.
+**Live site:** https://veernxt-social.vercel.app (sign-in required)
+**Checks:** `tsc --noEmit` clean; `npm run build` passes; `npm run lint` 0 errors, 37 warnings (unused variables in the unfinished publishing skeletons)
 
 ---
 
-## 1. What the project is
+## 1. What the app is
 
-A Next.js 16 (App Router, Tailwind 4) app that turns one idea or article into platform-specific posts for LinkedIn, X, Instagram and Facebook, lets a person review and edit them, then schedules or publishes.
+A Next.js 16 app (App Router, Tailwind 4) for the VeerNXT team. It turns one idea or article into posts for LinkedIn, X, Instagram and Facebook, lets a person review and edit them, then schedules or publishes. It is for Indian Ex-Service Men (ESM) content.
 
-- **AI:** OpenAI (`gpt-4o` for text, `gpt-image-2.5-flare` for images).
-- **Storage today:** the browser's `localStorage` through `mockRepo` ([mockStore.ts](../src/lib/mockStore.ts)). A Supabase schema exists in `supabase/migrations/`, but the flows I worked on do not use it.
-- **Publishing today:** Mock and Manual providers only. The LinkedIn, X, Meta and Buffer providers are skeletons.
-- **Brand rules** (from README and system prompt): no "Agniveer"; use "Ex-Service Men (ESM)"; no invented facts, statistics, dates or URLs; India audience.
+| Part | How it works today |
+|---|---|
+| **AI** | OpenAI: `gpt-4o` writes text; `gpt-image-2.5-flare` makes images (medium quality). If OpenAI fails or has no key, the app shows an error. It no longer saves sample content. |
+| **Data** | Supabase (Sydney region): content, posts, campaigns, sources, links, media records and brand voice, with owner-only row security. Images in a public `media` bucket. |
+| **Sign-in** | Supabase email and password. Required on the online site, off for local development (`npm run dev`). A proxy (`src/proxy.ts`) blocks every page and data request without a session. |
+| **Publishing** | **LinkedIn and X are live through Buffer.** Sandbox mode (the default on every page load) only rehearses. Facebook and Instagram are not connected. |
+| **Hosting** | Vercel, built from `main`. |
 
-## 2. Done this session
+**Brand rules that always apply:** never the word "Agniveer"; use "Ex-Service Men (ESM)"; never invent facts, figures or links; India audience.
 
-| # | Item | State |
-|---|---|---|
-| 1 | **Project analysis** and a mock-content test plan | Done |
-| 2 | **Two posts per channel test.** The Test Campaign now generates two content items (launch, and skills for civilian careers), each with LinkedIn, X, Instagram and Facebook posts: 8 posts | Done, typechecks. Not clicked through in a browser by me end to end |
-| 3 | **AI images.** One image per content item using `gpt-image-2.5-flare`, `quality: 'medium'`. Saved to `public/generated/` (gitignored). Falls back to `/logo.png` if there is no key or a failure. Code: [imageGen.ts](../src/lib/imageGen.ts) | Verified with real API calls |
-| 4 | **India fix for images.** First images showed a Western soldier in US-style camouflage. Added India guidelines to every image prompt and a rule to the text system prompt | Verified with one new test image (Indian professionals, Indian office). Only one sample checked |
-| 5 | **Platform-style previews in the test modal.** Reuses `PlatformPreviews` for the four channels | Done. Screenshot reviewed by the user |
-| 6 | **Removed the Instagram "Visual Concept" overlay** that was printed over the image in the mockup | Done |
-| 7 | **Two existing bugs fixed:** the generate route saved to `localStorage` on the server (a no-op), and the publish route could not find new items (404). The modal now saves in the browser and sends the post to the publish route | Done |
-| 8 | **Cost analysis.** About $0.03-0.04 (about Rs 3-4) per content item; about Rs 7-8 for a full test run | Estimates from third-party price pages |
-| 9 | **Campaign workbook** ([VeerNXT_Campaign_Schedule_and_Costing.xlsx](VeerNXT_Campaign_Schedule_and_Costing.xlsx)): 8 weeks, 16 themes, 9 pillars, 64 posts, costing in USD and INR (about Rs 78 expected, Rs 49-165 range) | Recalculated in LibreOffice, 0 formula errors. Not opened in Excel |
-| 10 | **Themes from the main site** (`veernxt-web`): umbrella "Your Second Mission", journey from awareness to joining | Done, needs client approval |
-| 11 | **Corporate UI restyle.** Grey and white only, no rounded corners, no gradients, glow, glass or emoji. Inter font, page title fixed, compact dashboard header, test campaign moved to Settings > Developer tools. A converter script remapped about 60 colour patterns; a bug in its first run (side borders lost) was found and fixed | Done, reviewed in 1440 px screenshots. Media Library, Campaigns, both modals and smaller widths not yet reviewed |
-| 13 | **Layout redesign.** Calendar rebuilt with real week/month/list views, filters and a schedule panel; Content Library is now a filterable table with bulk approve; composer is two columns; responsive shell checked at 1440, 1024 and 390 px | Done, reviewed in screenshots. Test modal after real generation not re-run |
-| 15 | **Server-side storage (Supabase).** Content items, platform posts and campaigns now live in the database. New server layer (`src/lib/db/`), API routes (`/api/items`, `/api/items/[id]`, `.../posts/[platform]`, `.../approve`), and generate and publish routes that read and write the database. Browser client in `src/lib/api.ts`; every screen and modal moved over. Editor autosaves (debounced, flushed on leave). Until sign-in exists, rows belong to one workspace-owner account created through the admin API. Schema applied with tightened row level security (no open policies). Verified: 26 API checks, a full browser run with a fresh profile (content survives a reload and a new browser), and rows confirmed in the database | Done |
-| 17 | **Content sources scraper.** Finds article links on defence and strategy sites to inspire posts. Safe fetcher (blocks internal addresses, size and time limits, robots.txt, per-site rate limit), RSS and web-page readers, spam and off-site filters, and a transparent keyword relevance score. Sources screen (scan, filter, save, dismiss, create content from a link), source and link storage with tables in `02_content_sources.sql`. The page-reader route was hardened against internal-address (SSRF) requests and now extracts proper article text. **Verified:** all 6 sources against the live sites (IMR 42 real links with 11 casino-spam links blocked; IDSA 35; CLAWS 25; NMF 10; IDR 50 with filler scored 0; USI 16 journal articles) and the SSRF checks. **Also verified after the project was restored:** storage of 178 links (re-scan adds 0 duplicates, scores refresh when rules change) and the Sources screen in a real browser, including create-content-from-link. A spam false positive (the word "kumar" matched a real author) was found and fixed | Done |
-| 16 | **Images to Supabase Storage.** New `src/lib/db/media.ts` (public `media` bucket, records each upload in the `media` table) and `imageGen.ts` now uploads instead of writing to disk. The 2 existing images were migrated (URLs verified to serve from storage) and new generations upload to storage | Done |
-| 18 | **Industry Insights batch for the Colonel.** 11 articles from the sources turned into 44 posts (4 channels each), saved in the database in review status, with images in storage. First generation was rejected on reading: posts forced unsupported career claims. Added a guardrail (`src/lib/insightRules.ts`, `contentGuard.ts`, `POST /api/items/[id]/guard`) that checks every post (source credited, no jobs or opportunity claims, only figures from the article, X length, no placeholders) and rewrites failures; it now runs automatically when content is made from a source link. 29 of 48 posts failed and were fixed (3 by hand). Two articles were dropped: one concerned police conduct at political protests and the posts invented an Ex-Service Men angle; the other (CLAWS, Land Will Be the Currency of Victory) was a video page whose stored text was mostly site menu, so its posts were not grounded in an article. It was replaced by CLAWS Operation Dawn of Yemen (guardrails ran automatically and fixed 3 of its 4 posts). The page reader now refuses pages with fewer than 4 real sentences in the text it would pass to the AI. Workbook `docs/VeerNXT_Industry_Insights_Schedule.xlsx`: 44 posts over 6 weeks (26 Oct to 3 Dec 2026), decision dropdown, source articles with previews, review notes | Done, awaiting approval |
-| 19 | **In-app help.** A plain-language "How this page works" panel under the main content of every page and the editor (`src/components/PageHelp.tsx`), written for a first-time user and honest that Media, Campaigns and Analytics are still previews | Done |
-| 20 | **Own pictures on posts and a real Media Library.** Upload your own PNG/JPEG/WebP (max 10 MB, type checked from the file contents; SVG refused) from the editor (one channel or all four), from the Create screen (skips the AI image and its cost), or the Media Library; reuse earlier pictures with "Choose from library". Post images can only be our own storage addresses. The Media Library lists every stored image with sizes and dates, accepts uploads and refuses to delete an image a post still uses. Each image gets a small JPEG thumbnail (library of 14 images: 32.7 MB of originals became 378 KB) so lists load instantly; the 14 existing images were backfilled and renamed after their content (migration `03_media_thumbnails.sql`, additive). 31 API checks and 15 browser checks pass. Found and fixed along the way: a wrong JSON filter in the in-use check, an inefficient four-step all-channels update (now one query), and a native image library (`sharp`) that the dev server cannot link on this drive | Done |
-| 14 | **Shared UI component set** (`src/components/ui/`: Button, Card, PageHeader, Field, Modal, Tabs, SegmentedControl, StatCard, EmptyState, StatusLabel, `cn()` helper) applied to every screen and modal. **Bug fixed:** Publish now and Schedule in the editor failed because the post was not sent to the API; both now work (tested in the browser) | Done |
-| 12 | **Test modal check made real.** It logged "Verified... no Agniveer" without checking. It now counts the posts and scans them for the prohibited term | Done, not run against live generation |
+## 2. Done since the last report (30 Sep)
 
-## 3. Cost reference
+### Storage, sources and content
+- **Server-side storage.** Content, posts and campaigns moved out of the browser into the database; a server data layer and API routes; the editor autosaves.
+- **Content sources scraper.** Finds article links on defence and strategy sites, with a safe fetcher (blocks internal addresses, robots.txt, rate limit), spam filter and relevance score. Sources screen to scan, save, dismiss and create content from a link. 178 links stored from 6 sites.
+- **Insight guardrails.** Posts made from outside articles are checked (source credited, no invented career claims, only figures from the article, X length) and rewritten if they fail.
+- **Industry Insights workbook** for the Colonel: 44 posts, 26 Oct to 3 Dec 2026, with a decision column. **Awaiting his feedback.**
 
-| | Low | Expected | High |
-|---|---|---|---|
-| Per content item | Rs 3 | Rs 5 | Rs 10 |
-| Full campaign (16 items) | Rs 49 | Rs 78 | Rs 165 |
+### Pictures
+- **Own pictures.** Upload PNG, JPEG or WebP (10 MB max, type checked from the file contents, SVG refused) on a post, on the Create screen (skips the AI image) or in the Media Library; reuse from the library.
+- **WebP compression.** Every upload and AI image is converted to WebP with `sharp`: longest side 2048 px, quality stepped down to about 600 KB, camera and location data removed, plus a 480 px WebP thumbnail. A 4000x3000 JPEG of 957 KB became 166 KB.
+- **Images removed.** All earlier images were deleted; only `logo.png` remains in `public/`.
+- **Article picture.** When an article is read from its web address, its own picture is offered with a "Use the article picture" button (saved as WebP). A copyright caution is shown.
+- **JPEG at publish time.** A JPEG copy is made when a post is sent to Buffer, because LinkedIn and Instagram do not reliably accept WebP.
 
-Assumes about Rs 96.5 per USD (from a web search, not a live rate). Excludes ad spend, staff time, hosting, GST and bank fees. Check the OpenAI usage dashboard for real spend.
+### Publishing through Buffer
+- **Publish now and Schedule** create real posts in Buffer for LinkedIn and X (text, call to action and hashtags; an X post counts a link as 23 characters).
+- **Status sync.** Once each time the app opens, it asks Buffer whether scheduled posts went out (sent, failed, or deleted in Buffer).
+- **Cancel schedule** removes a scheduled post from Buffer.
+- **Sandbox / Live switch** in the header. Live asks for confirmation before Publish now. Posts scheduled in Sandbox are labelled "sandbox only, not in Buffer".
+- **Tested live:** a test post was scheduled and then cancelled and deleted in Buffer, with the image arriving as JPEG.
 
-## 4. Known issues and risks
+### Sign-in and hosting
+- Sign-in added (above). Verified with 11 checks. Your user is `veernxt.esm@gmail.com`.
+- **Vercel fixes.** The image tool was missing from the deployed server code; fixed in two steps (`next.config.ts` now includes `sharp`, `detect-libc` and `semver`). A health page at `/api/diagnostics` (sign-in required) reports which settings are present and whether the image tool, storage and Buffer work.
 
-00a. **No sign-in yet, so anyone who can reach the app can upload, delete and edit.** Fine for local testing; must be added before any public deployment (planned).
-00b. **Dev server cannot use native libraries on the K: drive** (Turbopack cannot create junction points there), so images are processed with pure-JavaScript `jimp`. WebP uploads therefore have no thumbnail and the library shows the original.
+### Real data only
+- **Analytics** reads real figures from Buffer (published posts, impressions, likes, comments, shares, clicks, saves). A tile appears only once a platform has reported it. Nothing has been published through Buffer yet, so it shows no figures.
+- **Campaigns** lists the real campaigns in the database.
+- Removed: sample analytics, sample campaigns, invented preview numbers and handles, "Run test campaign", "Load example", the fake "2-week campaign" button, and the built-in sample content the AI used when it failed.
+- The 8 fake "Published" posts from the first sandbox test were deleted.
 
-00. **LibreOffice on this machine looks half-installed** (a few program files and two installer packages in `C:\Program Files\LibreOffice`). Formula recalculation of workbooks was not possible, so the Colonel's workbook uses fixed values for dates and counts.
-0. **Supabase project was paused** (restored 15 Oct 2026). The free plan pauses projects after about a week of inactivity (it happened between 1 and 15 Oct 2026). Restore it from the dashboard (Restore project). To prevent a repeat, upgrade the plan or schedule a regular request to the project. Until then, storage, images and Sources cannot be tested.
+### Content tools
+- **Delete content** (single or several, from the library or inside an item). Posts waiting in Buffer are cancelled first. Posts already published stay on the networks. The source article is made available again.
+- **Article link added to posts** made from an article: LinkedIn and Facebook end with "Read the full article: <link>"; X gets the link within 280 characters; Instagram gets none (not tappable).
+- **Website address** is now `https://veernxt.in` everywhere (58 saved posts corrected). **Assumed from "veernt.in", please confirm.** One constant to change: `src/lib/site.ts`.
+- **Brand voice in the database and editable** on the Settings page (name, description, audience, tone, preferred terms, key messages, call to action style, prohibited words). The AI follows it on every write and rewrite. Saved for everyone, on any computer.
+- **Prohibited words enforced.** Generated posts are rewritten if they contain a banned word; the editor shows a warning; a post containing one cannot be scheduled or published. "Agniveer" can never be removed from the list.
+- **In-app help** updated for every page.
 
-1. **Images are still files on disk (next step).** Posts store only the image path. `imageGen.ts` writes to `public/generated/` on disk. That works locally but not on Vercel (read-only filesystem). Before deploying, upload to Supabase Storage (the `media` bucket already planned in the README) or similar and store the URL.
-2. **Data lives in the browser only.** Clearing site data loses all content. `localStorage` also has a ~5 MB limit; images are stored as file paths so this is fine for now.
-3. **Old images in the browser.** Content generated before the India fix still shows the Western images until the test campaign is run again.
-4. **Real OpenAI key in `.env`.** Every test run spends real money (about Rs 7-8). I never printed the key. For offline runs set it to `your_openai_api_key_here`.
-5. **Page metadata is still "Create Next App"** ([layout.tsx](../src/app/layout.tsx)).
-6. **Nothing is committed.** Working tree has modified and untracked files (see section 6). `package.json` changes came from before this session.
-7. **Lint not run.** `tsc --noEmit` is clean; `npm run lint` was not run.
-8. **Windows tooling gap.** The xlsx skill's `recalc.py` needs Unix sockets and fails on Windows. I recalculated by converting through LibreOffice directly.
-9. **Publishing is not real.** Live publishing to any platform needs the provider skeletons built and credentials added.
+### Tests this period
+Media API 31 of 32 (the one miss was a faulty test file, covered by a manual check); delete, link and article-picture 17 of 17; brand voice 12 of 12; prohibited words 8 of 8; sign-in 11 of 11; Buffer live scheduling and cancelling checked directly against Buffer. The browser (UI) test scripts depend on images that no longer exist and were not re-run; the new pages were not checked in a browser by me.
 
-## 5. Open decisions for the client
+## 3. Known issues and risks
 
+1. **Sandbox is the starting mode on every page load.** Switch to Live in the header (or Settings) before scheduling for real. Deliberate, to stop accidental posts.
+2. **Public sign-ups were still switched on in Supabase** when last checked. Turn off "Allow new users to sign up" (Authentication, Sign In / Providers). Until then anyone could register an account.
+3. **All signed-in users share one workspace** and see the same content. There are no separate roles.
+4. **Facebook and Instagram are not connected.** Instagram needs a Business or Creator account linked to a Facebook Page, and every Instagram post needs a picture.
+5. **Analytics are empty until a post is published through Buffer** (and platforms report a few hours later).
+6. **Buffer free plan limits:** 100 API calls per 15 minutes, 250 per day. Plenty for manual posting.
+7. **Supabase free plan pauses a project after about a week of inactivity** (it happened once). Upgrade the plan or schedule a regular request to prevent it.
+8. **Prohibited words:** if the AI cannot remove a banned word after two rewrites, the post is kept and publishing stays blocked until you edit it. Brand voice changes apply to new posts only.
+9. **Windows / K: drive.** The bundler cannot link native libraries on this drive, so `sharp` is loaded at run time. It works locally and on Vercel; do not change `next.config.ts` or the loader in `src/lib/db/media.ts` without testing both.
+10. **Article pictures are usually copyrighted** by the news outlet. Use them only with the right to do so, or credit the source.
+11. **Lint** has 37 warnings (unused variables in publishing skeletons: LinkedIn, X and Meta providers, which are not used because Buffer handles those channels).
+12. **Page metadata** is still "VeerNXT Social" with a placeholder description; the real OpenAI key spends money on each generation (about Rs 3-10 per content item).
+13. **LibreOffice on this machine is half-installed**, so the workbooks use fixed values and were not recalculated.
+14. **The GitHub repository is public** until you change it at the end of the project. It contains no secrets (`.env` is ignored).
+
+## 4. Open decisions
+
+**For the team**
+1. Confirm the website address is `veernxt.in`.
+2. What content goes on Facebook and Instagram, and who creates those accounts.
+3. Whether to remember Live mode between visits (convenient, but a rehearsal could become a real post by mistake). Recommended: keep Sandbox as the start.
+
+**For the client** (unchanged)
 1. **Audience wording.** The VeerNXT website is written largely for Agniveers; the social brand rules exclude the word. Confirm posts stay ESM/veteran-only.
 2. **Claims to verify before posting:** "Government of India Approved" vs "Aligned"; SEBI-compliant and NISM-certified planners; "500+ exams"; veteran and community counts.
 3. **Features not ready to promote:** Legal Aid Cell (page says "demonstration"), WhatsApp alerts (simulated), Rewards (empty catalogue), app-store listings ("coming soon").
 4. **Employer wording:** the site says employers contact candidates directly; the Private Sector module is deliberately HR-mediated.
-5. **Approve the 16 themes, start date (12 Oct 2026 is a placeholder), posting days and times.**
+5. **Approve the 16 themes, start date and posting days and times** in the campaign workbook.
 
-## 6. Files changed or added (uncommitted)
+## 5. Next steps
 
-**New:** `src/lib/imageGen.ts`, `src/lib/cn.ts`, `src/components/ui/*` (Button, Card, PageHeader, Field, Modal, Tabs, StatCard, EmptyState, index), `src/components/ContentLibraryView.tsx`, `src/components/ui/StatusLabel.tsx`, `docs/status_report.md`, `docs/UI_REDESIGN_PLAN.md`, `docs/VeerNXT_Campaign_Schedule_and_Costing.xlsx`
-**Edited this session:** `src/app/api/content/generate/route.ts`, `src/app/api/publish/route.ts`, `src/components/TestCampaignModal.tsx`, `src/components/PlatformPreviews.tsx`, `src/components/CalendarView.tsx` (rewritten), `src/components/CreateContentView.tsx`, `src/components/Header.tsx`, `src/components/Sidebar.tsx`, `src/components/DashboardView.tsx`, `src/components/SettingsView.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `src/lib/openai.ts`, `.gitignore`
-**Already modified/untracked before this session:** `README.md`, `package.json`, `package-lock.json`, `src/app/globals.css`, `src/app/page.tsx`, `public/logo.png`, `src/app/api/`, `src/components/`, `src/lib/`, `src/types/`, `supabase/`
+1. **Turn off public sign-ups** in Supabase.
+2. **Colonel reviews the Industry Insights workbook.** Then edit, approve and schedule the approved posts in the app (the posts have no pictures and no article link yet; the link can be added with one request per item and pictures uploaded in the editor).
+3. **First real post** through Buffer in Live mode, then check Analytics a few hours later.
+4. **Facebook and Instagram** once the accounts and content plan exist.
+5. **Later:** daily automatic source scans, PDF article support, calendar drag-to-reschedule, a role for each team member, and a plan upgrade to avoid Supabase pausing.
 
-## 7. Suggested next steps
+## 6. Where things are
 
-1. Colonel reviews the Industry Insights workbook; approved posts can then be approved and scheduled in the app.
-2. Campaigns, media library and brand settings into the database, then sign-in. Daily automatic scans (cron). Support for reading PDF articles (USI).
-2. Remaining UI items: calendar drag-to-reschedule and day view, replace sample data and images ([plan](UI_REDESIGN_PLAN.md), section 5).
-2. Client review of the campaign workbook; resolve the open decisions in section 5.
-3. Before any deployment: move images to Supabase Storage and move persistence off `localStorage`.
-4. Build live publishing (start with one platform) once credentials exist.
-5. Commit the work in logical pieces once the redesign direction is agreed.
+- **Migrations:** `supabase/migrations/01` to `04` (schema, sources, thumbnails, one brand row per owner). All applied to the database.
+- **Server data layer:** `src/lib/db/`. **API routes:** `src/app/api/`. **Browser client:** `src/lib/api.ts`.
+- **Buffer:** `src/lib/publishing/buffer.ts`. **Analytics:** `src/lib/analytics.ts`. **Brand voice:** `src/lib/db/brand.ts`, `src/lib/openai.ts`. **Prohibited words:** `src/lib/prohibited.ts`, `src/lib/contentGuard.ts`.
+- **Sign-in:** `src/proxy.ts`, `src/app/login/`, `src/app/api/auth/`.
+- **Docs:** `UI_REDESIGN_PLAN.md`, `VeerNXT_Campaign_Schedule_and_Costing.xlsx`, `VeerNXT_Industry_Insights_Schedule.xlsx`.
+- **Secrets** live only in `.env` locally and in Vercel's Environment Variables (`OPENAI_API_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL`, `BUFFER_API_KEY`).
