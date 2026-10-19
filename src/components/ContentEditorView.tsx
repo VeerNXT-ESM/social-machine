@@ -387,7 +387,10 @@ export function ContentEditorView({ item, onUpdateItem, onOpenManualPublish }: C
             <CardBody className="space-y-4">
               <div className="p-3 bg-neutral-50 border border-neutral-200 flex items-center justify-between text-sm">
                 <span className="text-neutral-600">Status</span>
-                <span className="font-medium text-neutral-900">{statusText(currentPost?.status || 'REVIEW')}</span>
+                <span className="font-medium text-neutral-900">
+                  {statusText(currentPost?.status || 'REVIEW')}
+                  {currentPost?.external_post_id?.startsWith('mock-') && ' (sandbox only, not in Buffer)'}
+                </span>
               </div>
 
               <div className="space-y-2">
